@@ -1,0 +1,67 @@
+PROJECT: Quora Answer Scraper for Kanthaswamy Balasubramaniam
+OBJECTIVE:
+Build a comprehensive Scrapy spider to extract all 28,000+ answers from Quora user "Kanthaswamy Balasubramaniam" and store them in PostgreSQL.
+
+TECHNICAL REQUIREMENTS:
+Framework & Language:
+
+Python with Scrapy framework
+PostgreSQL database for storage
+Google OAuth authentication for Quora login
+Session/cookie persistence for authenticated scraping
+
+Authentication Setup:
+
+Login via Google OAuth using email: sreenivasan.ac92@gmail.com
+Maintain persistent session throughout scraping process
+Handle cookie management and session renewal
+
+Entry Point:
+Start URL: https://www.quora.com/profile/Kanthaswamy-Balasubramaniam/answers
+DATA EXTRACTION WORKFLOW:
+
+Answer Discovery:
+
+For each of the question answer in Quora website link above, Extract individual answer links using: response.css("a.answer_timestamp::attr(href)").get()
+
+Keep scrolling in the quora page till the end to get all 28,000+ such links. Store the answer links in postgresql in the database field answered_question_url . Give an database ID during each insertion. Keep the other fields empty for now.
+
+
+DATABASE SCHEMA (PostgreSQL):
+sqlCREATE TABLE quora_answers (
+    id SERIAL PRIMARY KEY,
+    question_url TEXT,
+    answered_question_url TEXT,
+    question_text TEXT,
+    answer_content TEXT,  -- Long text field for markdown content
+    revision_link TEXT,
+    post_timestamp_raw TEXT,  -- Raw timestamp text
+    post_timestamp_parsed TIMESTAMP NULL  -- Leave null for now
+);
+
+IMPLEMENTATION REQUIREMENTS:
+
+Implement robust error handling and retry logic
+Add respectful delays between requests (0.3 second)
+Log progress every 100 answers processed
+Save data incrementally to avoid data loss
+Handle dynamic content loading and pagination
+Implement graceful shutdown and resume capability
+
+PERFORMANCE EXPECTATIONS:
+
+Runtime: 8 - 10 hours is acceptable
+Concurrent requests: 1-3 (be respectful to Quora's servers)
+Data integrity: All 28,000+ answers must be captured
+
+DELIVERABLES:
+
+Complete Scrapy spider with authentication
+PostgreSQL database setup script
+Data validation and progress monitoring
+Error handling and logging system
+
+Please create a production-ready spider that handles authentication, data extraction, and storage robustly.
+
+
+
