@@ -11,7 +11,7 @@ import subprocess
 def main():
     """Main entry point for the Quora scraper"""
     print("=" * 70)
-    print("Quora Answer Scraper for Kanthaswamy Balasubramaniam")
+    print("Quora Answer Scraper for a particular profile (e.g. Kanthaswamy Balasubramaniam)")
     print("=" * 70)
     print()
     
@@ -34,9 +34,10 @@ def main():
                 
             elif choice == "2":
                 print("\nStarting URL collection...")
-                print("This will collect answer URLs from Kanthaswamy's profile page.")
+                print("This will collect answer URLs from Quora profile page. (e.g. Kanthaswamy Balasubramaniam)")
                 print("Note: This will open a browser window for authentication.")
                 print("Make sure you have Chrome installed and your .env file configured.")
+                print("Log file: quora_scraper.log")
                 print()
                 confirm = input("Continue? (y/N): ")
                 if confirm.lower() == 'y':
@@ -49,9 +50,9 @@ def main():
                 print("- Question URLs and text")
                 print("- Answer content (converted to Markdown)")
                 print("- Revision links and timestamps")
+                print("Log file: quora_process.log")
                 print()
                 print("REQUIREMENTS:")
-                print("- html-to-markdown library: pip install html-to-markdown")
                 print("- Existing answer URLs in database")
                 print("- Processing takes 2-3 seconds per answer")
                 print()
@@ -63,30 +64,30 @@ def main():
             elif choice == "4":
                 print("\nChecking database status...")
                 subprocess.run([sys.executable, "-c", """
-import os
-from dotenv import load_dotenv
-from quora_scraper.database import DatabaseManager
+                import os
+                from dotenv import load_dotenv
+                from quora_scraper.database import DatabaseManager
 
-load_dotenv()
-try:
-    db = DatabaseManager()
-    db.connect()
-    total_count = db.get_answer_count()
-    incomplete_count = db.get_incomplete_count()
-    complete_count = total_count - incomplete_count
-    
-    print(f'Total answers in database: {total_count}')
-    print(f'Complete entries (with answer data): {complete_count}')
-    print(f'Incomplete entries (URLs only): {incomplete_count}')
-    
-    if incomplete_count > 0:
-        print(f'\\nYou can process {incomplete_count} incomplete entries using:')
-        print('python run_scraper.py --mode process')
-    
-    db.disconnect()
-except Exception as e:
-    print(f'Error: {e}')
-                """])
+                load_dotenv()
+                try:
+                    db = DatabaseManager()
+                    db.connect()
+                    total_count = db.get_answer_count()
+                    incomplete_count = db.get_incomplete_count()
+                    complete_count = total_count - incomplete_count
+                    
+                    print(f'Total answers in database: {total_count}')
+                    print(f'Complete entries (with answer data): {complete_count}')
+                    print(f'Incomplete entries (URLs only): {incomplete_count}')
+                    
+                    if incomplete_count > 0:
+                        print(f'\\nYou can process {incomplete_count} incomplete entries using:')
+                        print('python run_scraper.py --mode process')
+                    
+                    db.disconnect()
+                except Exception as e:
+                    print(f'Error: {e}')
+                                """])
                 print()
                 
             elif choice == "5":

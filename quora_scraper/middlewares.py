@@ -14,6 +14,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from scrapy.http import HtmlResponse
 from scrapy.exceptions import NotConfigured
 from webdriver_manager.chrome import ChromeDriverManager
+from .common import check_quora_authentication
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,10 @@ class AuthMiddleware:
         self.driver = None
         self.authenticated = False
         self.cookies = None
+        
+        # Disable verbose selenium and urllib3 logging
+        logging.getLogger('selenium.webdriver.remote.remote_connection').setLevel(logging.WARNING)
+        logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
         
     @classmethod
     def from_crawler(cls, crawler):
@@ -139,6 +144,7 @@ class AuthMiddleware:
             chrome_cmd = [
                 chrome_path,
                 f'--remote-debugging-port={debug_port}',
+                '--user-data-dir=/tmp/chrome_debug_profile',
                 '--no-first-run',
                 '--no-default-browser-check',
                 '--disable-default-apps'
@@ -188,6 +194,7 @@ class AuthMiddleware:
             return Service()
     
     def authenticate_with_google(self):
+        # TODO make this more robust, cleaner, and cleanup the code
         """Perform Google OAuth authentication for Quora"""
         if self.authenticated:
             return True
@@ -195,52 +202,16 @@ class AuthMiddleware:
         try:
             logger.info("Starting Google OAuth authentication for Quora")
             
-            # Navigate to Quora login page
+            # Check if already logged
+            # Navigate to Quora main page to check authentication
             self.driver.get("https://www.quora.com/")
-            time.sleep(3)
+            is_authenticated = check_quora_authentication(self.driver)
+            if is_authenticated:
+                self.cookies = self.driver.get_cookies()
+                self.authenticated = True
+                return True
             
-            # Check if already logged in by looking for user-specific elements
-            try:
-                # Look for elements that indicate we're already logged in
-                logged_in_indicators = [
-                    ".header_login_text_name",  # User name in header
-                    ".header_user_menu",        # User menu dropdown
-                    "[data-testid='user-menu']", # User menu button
-                    ".user_menu_button"         # Alternative user menu
-                ]
-                
-                for indicator in logged_in_indicators:
-                    try:
-                        element = self.driver.find_element(By.CSS_SELECTOR, indicator)
-                        if element and element.is_displayed():
-                            logger.info(f"Already logged in to Quora (found: {indicator})")
-                            self.cookies = self.driver.get_cookies()
-                            self.authenticated = True
-                            return True
-                    except:
-                        continue
-                        
-                # Also check the URL - if we're not on login page, might be logged in
-                current_url = self.driver.current_url
-                if "login" not in current_url.lower() and "quora.com" in current_url:
-                    # Try to navigate to a protected page to test authentication
-                    test_url = "https://www.quora.com/profile/Kanthaswamy-Balasubramaniam/answers"
-                    self.driver.get(test_url)
-                    time.sleep(3)
-                    
-                    # If we can access the profile page, we're logged in
-                    if "profile" in self.driver.current_url:
-                        logger.info("Already logged in to Quora (can access profile pages)")
-                        self.cookies = self.driver.get_cookies()
-                        self.authenticated = True
-                        return True
-                    else:
-                        # Go back to main page for login
-                        self.driver.get("https://www.quora.com/")
-                        time.sleep(2)
-                        
-            except Exception as e:
-                logger.debug(f"Error checking login status: {e}")
+            time.sleep(1)  # Brief pause before proceeding to login
             
             # Look for Google login option directly (no need to click Login button first)
             google_login_selectors = [
@@ -265,7 +236,7 @@ class AuthMiddleware:
                     google_login.click()
                     google_clicked = True
                     logger.info(f"Google login clicked using selector: {selector}")
-                    time.sleep(3)  # Give more time for redirect
+                    time.sleep(2)  # Give more time for redirect
                     break
                 except TimeoutException as e:
                     logger.warning(f"Google login selector failed: {selector} - {e}")
@@ -282,9 +253,60 @@ class AuthMiddleware:
                 self.authenticated = True
                 return True
             
+            # Check if we're on Google OAuth page accounts.google.com
+            current_url = self.driver.current_url
+            if "accounts.google.com" in current_url:
+                logger.info("On Google authentication page - looking for account selection...")
+                
+                # Try to find and click the account that matches our email
+                try:
+                    # Look for account selection elements with our email
+                    account_selectors = [
+                        f"[data-identifier='{self.email}']",  # Direct data attribute match
+                        f"div[role='link'][data-identifier='{self.email}']",  # More specific role-based selector
+                        f"//div[@role='link' and @data-identifier='{self.email}']",  # XPath with role and data-identifier
+                        f"[data-email='{self.email}']",       # Alternative data attribute
+                        f"//div[contains(text(), '{self.email}')]",  # Text content match
+                        f"//div[@data-email='{self.email}']"  # XPath for data-email
+                    ]
+                    
+                    account_clicked = False
+                    for selector in account_selectors:
+                        try:
+                            logger.info(f"Trying account selector: {selector}")
+                            if selector.startswith("//"):
+                                # XPath selector
+                                account_element = WebDriverWait(self.driver, 5).until(
+                                    EC.element_to_be_clickable((By.XPATH, selector))
+                                )
+                            else:
+                                # CSS selector
+                                account_element = WebDriverWait(self.driver, 5).until(
+                                    EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                                )
+                            
+                            account_element.click()
+                            account_clicked = True
+                            logger.info(f"Successfully clicked account for {self.email}")
+                            time.sleep(2)  # Wait for navigation
+                            break
+                            
+                        except TimeoutException:
+                            logger.debug(f"Account selector not found: {selector}")
+                            continue
+                        except Exception as e:
+                            logger.debug(f"Error with selector {selector}: {e}")
+                            continue
+                    
+                    if not account_clicked:
+                        logger.warning(f"Could not find account for {self.email} - continuing anyway...")
+                    
+                except Exception as e:
+                    logger.warning(f"Error during account selection: {e}")
+
             # Wait for authentication to complete (shorter timeout)
             logger.info("Waiting for authentication completion...")
-            max_wait_time = 30  # Reduced from 60 seconds
+            max_wait_time = 10
             start_time = time.time()
             
             while time.time() - start_time < max_wait_time:
@@ -293,24 +315,12 @@ class AuthMiddleware:
                 # Check for successful login indicators
                 if "quora.com" in current_url and "login" not in current_url.lower():
                     # Additional check: try to find user-specific elements
-                    try:
-                        user_elements = self.driver.find_elements(By.CSS_SELECTOR, ".header_login_text_name, .header_user_menu, [data-testid='user-menu']")
-                        if user_elements:
-                            logger.info("Successfully authenticated and redirected to Quora")
-                            self.cookies = self.driver.get_cookies()
-                            self.authenticated = True
-                            return True
-                    except:
-                        pass
-                
-                # Check if we're on Google OAuth pages
-                if "accounts.google.com" in current_url:
-                    logger.info("On Google authentication page - waiting for completion...")
-                
-                time.sleep(2)
+                    is_authenticated = check_quora_authentication(self.driver)
+                    if is_authenticated:
+                        self.cookies = self.driver.get_cookies()
+                        self.authenticated = True
+                        return True
             
-            # If we reach here, authentication might have completed but we're not sure
-            logger.warning("Authentication timeout reached")
             current_url = self.driver.current_url
             logger.info(f"Current URL: {current_url}")
             
@@ -342,17 +352,17 @@ class AuthMiddleware:
     
     def process_request(self, request, spider):
         """Process request with authentication if needed"""
-        # Check if this is a Selenium-only request (processing mode)
-        if request.meta.get('use_selenium', False):
-            logger.info("Skipping HTTP request - using Selenium directly")
-            # Return a fake response since we'll handle everything in Selenium
-            return HtmlResponse(
-                url=request.url,
-                body=b'<html><body>Selenium will handle this</body></html>',
-                encoding='utf-8'
-            )
+        # # Check if this is a Selenium-only request (no HTTP needed)
+        # if request.meta.get('use_selenium', False):
+        #     logger.info("Skipping HTTP request - using Selenium directly")
+        #     # Return a fake response since we'll handle everything in Selenium
+        #     return HtmlResponse(
+        #         url=request.url,
+        #         body=b'<html><body>Selenium will handle this</body></html>',
+        #         encoding='utf-8'
+        #     )
         
-        # For collection mode HTTP requests, ensure authentication and add cookies
+        # For regular HTTP requests, ensure authentication
         if not self.authenticated:
             if not self.driver:
                 self.setup_driver()
@@ -361,27 +371,10 @@ class AuthMiddleware:
                 logger.error("Authentication failed, cannot proceed")
                 return None
         
-        # Add cookies to request for authenticated access
+        # Add cookies to request
         if self.cookies:
             cookie_dict = {cookie['name']: cookie['value'] for cookie in self.cookies}
             request.cookies.update(cookie_dict)
-            
-            # Add additional headers to make requests look more like a real browser
-            request.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Cache-Control': 'max-age=0',
-            })
-            
-            logger.debug(f"Added {len(cookie_dict)} cookies to request for {request.url}")
         
         return None
     

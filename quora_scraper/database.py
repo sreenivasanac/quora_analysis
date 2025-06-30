@@ -42,12 +42,12 @@ class DatabaseManager:
         CREATE TABLE IF NOT EXISTS quora_answers (
             id SERIAL PRIMARY KEY,
             question_url TEXT,
-            answered_question_url TEXT,
+            answered_question_url TEXT UNIQUE,
             question_text TEXT,
             answer_content TEXT,
             revision_link TEXT,
             post_timestamp_raw TEXT,
-            post_timestamp_parsed TIMESTAMP NULL
+            post_timestamp_parsed TIMESTAMP WITH TIME ZONE NULL
         );
         
         CREATE INDEX IF NOT EXISTS idx_answered_question_url 

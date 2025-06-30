@@ -8,9 +8,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException
 from ..items import QuoraAnswerItem
 from quora_scraper.database import DatabaseManager
-from datetime import datetime
-import pytz
-from html_to_markdown import convert_to_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +38,12 @@ class QuoraProfileSpider(scrapy.Spider):
         self.scroll_count = 0
         self.no_new_answers_count = 0
         
-        # Check if we should process existing entries
-        self.process_mode = kwargs.get('process_mode', 'collect')  # 'collect' or 'process'
+        # Disable verbose selenium and urllib3 logging
+        logging.getLogger('selenium.webdriver.remote.remote_connection').setLevel(logging.WARNING)
+        logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
         
-        if self.process_mode == 'collect':
-            # Load existing URLs from database at startup for collection mode
-            self.load_existing_urls_from_database()
-        else:
-            logger.info("Running in process mode - will populate existing database entries")
+        # Load existing URLs from database at startup
+        self.load_existing_urls_from_database()
         
     def load_existing_urls_from_database(self):
         """Load all existing answered_question_url from database to avoid duplicates"""
@@ -71,25 +66,16 @@ class QuoraProfileSpider(scrapy.Spider):
             logger.warning("Continuing without existing URL filtering...")
             self.database_saved_urls = set()  # Empty set if database read fails
     
-    def start_requests(self):
-        """Generate the initial request"""
-        if self.process_mode == 'process':
-            # Process existing database entries
-            yield scrapy.Request(
-                url='https://www.quora.com/',  # Dummy URL for processing mode
-                callback=self.process_existing_entries,
-                dont_filter=True,
-                meta={'use_selenium': True}
-            )
-        else:
-            # Instead of making HTTP requests, we'll use the authenticated Selenium driver
-            # The middleware will handle authentication, then we'll use that driver directly
-            yield scrapy.Request(
-                url=self.start_urls[0],
-                callback=self.parse_with_selenium,  # Changed callback
-                dont_filter=True,
-                meta={'use_selenium': True}  # Flag to indicate we want to use Selenium
-            )
+    async def start(self):
+        """Generate the initial request using the new async start method"""
+        # Instead of making HTTP requests, we'll use the authenticated Selenium driver
+        # The middleware will handle authentication, then we'll use that driver directly
+        yield scrapy.Request(
+            url=self.start_urls[0],
+            callback=self.parse_with_selenium,  # Changed callback
+            dont_filter=True,
+            meta={'use_selenium': True}  # Flag to indicate we want to use Selenium
+        )
     
     def setup_selenium_driver(self):
         """Setup Selenium driver for scrolling"""
@@ -109,6 +95,9 @@ class QuoraProfileSpider(scrapy.Spider):
             chrome_options.add_argument('--disable-gpu')
             chrome_options.add_argument('--window-size=1920,1080')
             chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            # Remove problematic options that aren't compatible with ChromeDriver 138
+            # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            # chrome_options.add_experimental_option('useAutomationExtension', False)
             # Comment out headless for debugging
             # chrome_options.add_argument('--headless')
             
@@ -118,6 +107,12 @@ class QuoraProfileSpider(scrapy.Spider):
 
     def parse_with_selenium(self, response):
         """Parse answers page with 300-second scrolling to load all content"""
+
+        if not check_quora_authentication(self.driver):
+            logger.error("Not authenticated to Quora. Please login in the browser first to authenticate.")
+            import pdb; pdb.set_trace()
+            return
+
         logger.info(f"Starting to process {response.url}")
         logger.info(f"Database contains {len(self.database_saved_urls)} existing URLs to skip")
         
@@ -126,10 +121,12 @@ class QuoraProfileSpider(scrapy.Spider):
         
         # Load the page in Selenium
         self.driver.get(response.url)
-        time.sleep(2)  # Wait for initial page load
+        time.sleep(5)  # Wait for initial page load
         
         # Scroll for 300 seconds and collect all answer links
-        all_answer_links = self.scroll_for_duration(20)  # 300 seconds = 5 minutes
+        number_of_seconds_to_scroll = len(self.database_saved_urls)
+        all_answer_links = self.scroll_for_duration(number_of_seconds_to_scroll)  # 300 seconds = 5 minutes
+        import pdb; pdb.set_trace()
         
         # Filter out URLs that already exist in database
         new_urls = []
@@ -227,26 +224,6 @@ class QuoraProfileSpider(scrapy.Spider):
                 href = element.get_attribute('href')
                 if href:
                     links.append(href)
-            
-            # If primary selector doesn't work, try alternatives
-            if not links:
-                alternative_selectors = [
-                    "a[href*='/answer/']",
-                    "a[href*='Kanthaswamy-Balasubramaniam/answer/']",
-                    ".answer_item a[href*='/answer/']"
-                ]
-                
-                for selector in alternative_selectors:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for element in elements:
-                        href = element.get_attribute('href')
-                        if href and '/answer/' in href:
-                            links.append(href)
-                    
-                    if links:
-                        logger.info(f"Found {len(links)} links using alternative selector: {selector}")
-                        break
-            
             return links
             
         except Exception as e:
@@ -275,181 +252,4 @@ class QuoraProfileSpider(scrapy.Spider):
         else:
             logger.info(f"Successfully collected {self.answers_found} new answers!")
 
-    def process_existing_entries(self, response):
-        """Process existing database entries and populate missing fields"""
-        logger.info("Starting to process existing database entries")
-        
-        # Setup Selenium driver if not already done
-        self.setup_selenium_driver()
-        
-        # Connect to database and get incomplete entries
-        db_manager = DatabaseManager()
-        db_manager.connect()
-        
-        try:
-            incomplete_entries = db_manager.get_incomplete_entries()
-            total_entries = len(incomplete_entries)
-            
-            if total_entries == 0:
-                logger.info("No incomplete entries found in database")
-                return
-            
-            logger.info(f"Found {total_entries} incomplete entries to process")
-            
-            processed_count = 0
-            success_count = 0
-            
-            for entry in incomplete_entries:
-                answered_question_url = entry['answered_question_url']
-                entry_id = entry['id']
-                
-                try:
-                    logger.info(f"Processing entry {processed_count + 1}/{total_entries}: {answered_question_url}")
-                    
-                    # Extract data from the answer page
-                    answer_data = self.extract_answer_data(answered_question_url)
-                    
-                    if answer_data:
-                        # Update database with extracted data
-                        success = db_manager.update_answer_data(
-                            answered_question_url=answered_question_url,
-                            question_url=answer_data.get('question_url'),
-                            question_text=answer_data.get('question_text'),
-                            answer_content=answer_data.get('answer_content'),
-                            revision_link=answer_data.get('revision_link'),
-                            post_timestamp_raw=answer_data.get('post_timestamp_raw'),
-                            post_timestamp_parsed=answer_data.get('post_timestamp_parsed')
-                        )
-                        
-                        if success:
-                            success_count += 1
-                            logger.info(f"Successfully updated entry {entry_id}")
-                        else:
-                            logger.error(f"Failed to update database for entry {entry_id}")
-                    else:
-                        logger.error(f"Failed to extract data for entry {entry_id}")
-                    
-                    processed_count += 1
-
-                    import pdb; pdb.set_trace()
-                    
-                    # Log progress every 50 entries
-                    if processed_count % 50 == 0:
-                        logger.info(f"Progress: {processed_count}/{total_entries} processed, {success_count} successful")
-                    
-                    # Add delay between requests to be respectful
-                    time.sleep(1)
-                    
-                except Exception as e:
-                    logger.error(f"Error processing entry {entry_id}: {e}")
-                    processed_count += 1
-                    continue
-            
-            logger.info(f"Processing complete: {processed_count} entries processed, {success_count} successful")
-            
-        finally:
-            db_manager.disconnect()
-            self.cleanup_driver()
-    
-    def extract_answer_data(self, answered_question_url: str) -> dict:
-        """Extract all required data from an answer page"""
-        try:
-            # Navigate to the answer page
-            self.driver.get(answered_question_url)
-            time.sleep(1)  # Wait for page to load
-            
-            answer_data = {}
-            
-            # Extract question URL
-            try:
-                question_url_element = self.driver.find_element(By.CSS_SELECTOR, ".puppeteer_test_question_title a")
-                answer_data['question_url'] = question_url_element.get_attribute('href')
-            except Exception as e:
-                logger.warning(f"Could not extract question URL: {e}")
-                answer_data['question_url'] = None
-            
-            # Extract question text
-            try:
-                question_text_element = self.driver.find_element(By.CSS_SELECTOR, ".puppeteer_test_question_title a")
-                answer_data['question_text'] = question_text_element.text.strip()
-            except Exception as e:
-                logger.warning(f"Could not extract question text: {e}")
-                answer_data['question_text'] = None
-            
-            # Extract answer content and convert to markdown
-            try:
-                answer_content_element = self.driver.find_element(By.CSS_SELECTOR, "div.q-text")
-                answer_html = answer_content_element.get_attribute('innerHTML')
-                
-                # Convert HTML to markdown
-                answer_markdown = convert_to_markdown(
-                    answer_html,
-                    heading_style="atx",
-                    strong_em_symbol="*",
-                    wrap=True,
-                    wrap_width=100,
-                    escape_asterisks=True
-                )
-                answer_data['answer_content'] = answer_markdown.strip()
-            except Exception as e:
-                logger.warning(f"Could not extract answer content: {e}")
-                answer_data['answer_content'] = None
-            
-            # Extract revision data from log page
-            log_url = f"{answered_question_url}/log"
-            try:
-                self.driver.get(log_url)
-                time.sleep(1)
-                
-                # Extract revision link
-                try:
-                    revision_link_element = self.driver.find_element(By.CSS_SELECTOR, "a.puppeteer_test_link")
-                    answer_data['revision_link'] = revision_link_element.get_attribute('href')
-                except Exception as e:
-                    logger.warning(f"Could not extract revision link: {e}")
-                    answer_data['revision_link'] = None
-                
-                # Extract post timestamp
-                try:
-                    timestamp_element = self.driver.find_element(By.CSS_SELECTOR, "span.c1h7helg.c8970ew:last-child")
-                    timestamp_raw = timestamp_element.text.strip()
-                    answer_data['post_timestamp_raw'] = timestamp_raw
-                    
-                    # Parse timestamp
-                    parsed_timestamp = self.parse_quora_timestamp(timestamp_raw)
-                    answer_data['post_timestamp_parsed'] = parsed_timestamp
-                    
-                except Exception as e:
-                    logger.warning(f"Could not extract timestamp: {e}")
-                    answer_data['post_timestamp_raw'] = None
-                    answer_data['post_timestamp_parsed'] = None
-                    
-            except Exception as e:
-                logger.warning(f"Could not access log page {log_url}: {e}")
-                answer_data['revision_link'] = None
-                answer_data['post_timestamp_raw'] = None
-                answer_data['post_timestamp_parsed'] = None
-            
-            return answer_data
-            
-        except Exception as e:
-            logger.error(f"Failed to extract data from {answered_question_url}: {e}")
-            return None
-    
-    def parse_quora_timestamp(self, timestamp_str: str):
-        """Convert Quora timestamp string to datetime object with timezone"""
-        if not timestamp_str:
-            return None
-            
-        try:
-            # Parse the timestamp string (e.g., "June 27, 2025 at 10:26:56 PM")
-            dt = datetime.strptime(timestamp_str, "%B %d, %Y at %I:%M:%S %p")
-            
-            # Set timezone (assuming Pacific Time for Quora)
-            pacific = pytz.timezone('US/Pacific')
-            dt_with_tz = pacific.localize(dt)
-            
-            return dt_with_tz
-        except ValueError as e:
-            logger.error(f"Error parsing timestamp: {timestamp_str} - {e}")
-            return None 
+ 

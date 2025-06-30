@@ -61,5 +61,19 @@ DEFAULT_REQUEST_HEADERS = {
 LOG_LEVEL = 'INFO'
 LOG_FILE = 'quora_scraper.log'
 
+# Disable verbose third-party logging from selenium and urllib3
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {
+        'selenium.webdriver.remote.remote_connection': {
+            'level': 'WARNING',
+        },
+        'urllib3.connectionpool': {
+            'level': 'WARNING',
+        },
+    },
+}
+
 # Database settings (will be loaded from environment)
 DATABASE_URL = None  # Set via environment variable 

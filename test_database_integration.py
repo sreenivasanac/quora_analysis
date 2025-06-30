@@ -56,7 +56,7 @@ def test_database_integration():
             test_url = test_entry['answered_question_url']
             
             # Create sample data for testing
-            sample_timestamp = datetime.now(pytz.timezone('US/Pacific'))
+            sample_timestamp = datetime.now(pytz.timezone('Asia/Kolkata'))
             
             print(f"\nTesting update functionality with entry ID {test_entry['id']}...")
             
@@ -110,10 +110,10 @@ def test_timestamp_parsing():
     print("\nTesting timestamp parsing...")
     print("-" * 30)
     
-    # Import the spider to test timestamp parsing
-    from quora_scraper.spiders.quora_profile_spider import QuoraProfileSpider
+    # Import the answer processor to test timestamp parsing
+    from quora_scraper.answer_processor import QuoraAnswerProcessor
     
-    spider = QuoraProfileSpider()
+    processor = QuoraAnswerProcessor()
     
     # Test various timestamp formats
     test_timestamps = [
@@ -125,7 +125,7 @@ def test_timestamp_parsing():
     
     for timestamp_str in test_timestamps:
         try:
-            parsed = spider.parse_quora_timestamp(timestamp_str)
+            parsed = processor.parse_quora_timestamp(timestamp_str)
             if parsed:
                 print(f"✓ '{timestamp_str}' -> {parsed}")
             else:
@@ -135,7 +135,7 @@ def test_timestamp_parsing():
     
     # Test invalid timestamp
     try:
-        invalid_result = spider.parse_quora_timestamp("Invalid timestamp")
+        invalid_result = processor.parse_quora_timestamp("Invalid timestamp")
         if invalid_result is None:
             print("✓ Invalid timestamp correctly returned None")
         else:

@@ -62,7 +62,7 @@ def start_chrome_with_debugging():
             '--no-default-browser-check',
             '--disable-default-apps',
             '--disable-web-security',  # Sometimes needed for debugging
-            '--user-data-dir=/tmp/chrome_debug_session'  # Use temporary profile
+            '--user-data-dir=/tmp/chrome_debug_profile'  # Use temporary profile
         ]
         
         print(f"Starting Chrome with command: {' '.join(chrome_cmd)}")

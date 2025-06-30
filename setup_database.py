@@ -19,7 +19,7 @@ def setup_database():
     if not database_url:
         print("ERROR: DATABASE_URL environment variable is not set!")
         print("Please set it in your .env file or environment.")
-        print("Example: DATABASE_URL=postgresql://username:password@localhost:5432/quora_analysis")
+        print("Example: DATABASE_URL=postgresql://username:password@localhost:5432/quora_analysis1")
         sys.exit(1)
     
     try:

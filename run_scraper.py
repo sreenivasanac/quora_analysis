@@ -15,14 +15,15 @@ from scrapy.utils.project import get_project_settings
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from quora_scraper.spiders.quora_profile_spider import QuoraProfileSpider
+from quora_scraper.answer_processor import run_answer_processor
 
-def setup_logging():
+def setup_logging(log_file='quora_scraper.log'):
     """Setup logging configuration"""
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler('quora_scraper.log'),
+            logging.FileHandler(log_file),
             logging.StreamHandler(sys.stdout)
         ]
     )
@@ -44,13 +45,13 @@ def check_environment():
         print("See .env.example for reference.")
         sys.exit(1)
 
-def run_scraper(mode='collect'):
-    """Run the Quora answer scraper in specified mode"""
+def run_collector():
+    """Run the Quora answer URL collector"""
     # Load environment variables
     load_dotenv()
     
-    # Setup logging
-    setup_logging()
+    # Setup logging for collection
+    setup_logging('quora_scraper.log')
     
     # Check environment
     check_environment()
@@ -58,10 +59,7 @@ def run_scraper(mode='collect'):
     logger = logging.getLogger(__name__)
     
     try:
-        if mode == 'collect':
-            logger.info("Starting Quora Answer URL Collection for Kanthaswamy Balasubramaniam")
-        else:
-            logger.info("Starting Quora Answer Data Processing for existing database entries")
+        logger.info("Starting Quora Answer URL Collection for Kanthaswamy Balasubramaniam")
         
         # Get Scrapy settings
         settings = get_project_settings()
@@ -76,17 +74,52 @@ def run_scraper(mode='collect'):
         
         # Create and start the crawler process
         process = CrawlerProcess(settings)
-        process.crawl(QuoraProfileSpider, process_mode=mode)
+        process.crawl(QuoraProfileSpider)
         
-        logger.info("Starting crawler process...")
+        logger.info("Starting URL collection process...")
         process.start()  # This will block until crawling is finished
         
+        return True
+        
     except KeyboardInterrupt:
-        logger.info("Scraping interrupted by user")
-        sys.exit(0)
+        logger.info("Collection interrupted by user")
+        return False
     except Exception as e:
-        logger.error(f"Error running scraper: {e}")
-        sys.exit(1)
+        logger.error(f"Error running collector: {e}")
+        return False
+
+def run_processor():
+    """Run the Quora answer data processor"""
+    # Load environment variables
+    load_dotenv()
+    
+    # Setup logging for processing
+    setup_logging('quora_process.log')
+    
+    # Check environment
+    check_environment()
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info("Starting Quora Answer Data Processing for existing database entries")
+        
+        # Run the answer processor
+        success = run_answer_processor()
+        
+        if success:
+            logger.info("Answer processing completed successfully")
+        else:
+            logger.error("Answer processing failed")
+        
+        return success
+        
+    except KeyboardInterrupt:
+        logger.info("Processing interrupted by user")
+        return False
+    except Exception as e:
+        logger.error(f"Error running processor: {e}")
+        return False
 
 def main():
     """Main entry point with argument parsing"""
@@ -94,12 +127,12 @@ def main():
         description='Quora Answer Scraper for Kanthaswamy Balasubramaniam',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  python run_scraper.py                    # Collect new answer URLs (default)
-  python run_scraper.py --mode collect     # Collect new answer URLs  
-  python run_scraper.py --mode process     # Process existing URLs and populate data
-        """
-    )
+        Examples:
+        python run_scraper.py                    # Collect new answer URLs (default)
+        python run_scraper.py --mode collect     # Collect new answer URLs  
+        python run_scraper.py --mode process     # Process existing URLs and populate data
+                """
+            )
     
     parser.add_argument(
         '--mode',
@@ -119,17 +152,19 @@ Examples:
         print("MODE: Answer URL Collection")
         print("This will scroll through Kanthaswamy's answer page and collect all answer URLs.")
         print("New URLs will be saved to the database.")
+        print("Log file: quora_scraper.log")
     else:
         print("MODE: Answer Data Processing") 
         print("This will process existing answer URLs in the database and populate:")
         print("- Question URL and text")
         print("- Answer content (converted to Markdown)")
         print("- Revision links and timestamps")
+        print("Log file: quora_process.log")
     
     print()
     
     # Check if database setup has been run
-    if not os.path.exists('quora_scraper.log'):
+    if not os.path.exists('quora_scraper.log') and not os.path.exists('quora_process.log'):
         print("NOTICE: This appears to be the first run.")
         print("Make sure you have:")
         print("1. Set up your PostgreSQL database")
@@ -145,10 +180,19 @@ Examples:
     # Show additional info for process mode
     if args.mode == 'process':
         print("IMPORTANT NOTES for Processing Mode:")
-        print("- This requires the html-to-markdown library: pip install html-to-markdown")
+        print("- This requires the html-to-markdown library: uv pip install html-to-markdown")
         print("- Processing will take 2-3 seconds per answer (respectful to Quora)")
         print("- Progress is logged every 50 processed entries")
         print("- You can interrupt and resume - processed entries are saved immediately")
+        print()
+        print("AUTHENTICATION REQUIREMENT:")
+        print("- Processing mode requires an authenticated Chrome session")
+        print("- If you haven't run the collector recently, you may need to:")
+        print("  1. Start Chrome with the command:")
+        print("     exec arch -arm64 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \\")
+        print("       --remote-debugging-port=9222 --user-data-dir=/tmp/chrome_debug_profile")
+        print("  2. Authenticate to Quora manually in the browser")
+        print("  3. Then run the processor")
         print()
         
         response = input("Continue with processing mode? (y/N): ")
@@ -156,7 +200,17 @@ Examples:
             print("Exiting.")
             sys.exit(0)
     
-    run_scraper(args.mode)
+    # Run the appropriate mode
+    if args.mode == 'collect':
+        success = run_collector()
+    else:
+        success = run_processor()
+    
+    if success:
+        print(f"\n{args.mode.title()} mode completed successfully!")
+    else:
+        print(f"\n{args.mode.title()} mode failed or was interrupted.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 

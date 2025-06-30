@@ -5,11 +5,13 @@ A comprehensive Scrapy-based web scraper to extract all 28,000+ answers from Quo
 ## Features
 
 - **Google OAuth Authentication**: Automated login via Google OAuth
+- **Anti-Detection Technology**: Chrome DevTools Protocol (CDP) connection for stealth browsing
 - **Respectful Scraping**: Configurable delays and concurrent request limits
 - **PostgreSQL Storage**: Robust database storage with incremental saves
 - **Progress Monitoring**: Real-time logging and progress tracking
 - **Error Handling**: Comprehensive retry logic and graceful error handling
 - **Resume Capability**: Can resume from interruptions without data loss
+- **Dual Mode Operation**: Separate collection and processing modes
 
 ## Requirements
 
@@ -48,9 +50,9 @@ A comprehensive Scrapy-based web scraper to extract all 28,000+ answers from Quo
 
 4. **Create a PostgreSQL database:**
    ```sql
-   CREATE DATABASE quora_analysis;
-   CREATE USER quora_user WITH PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE quora_analysis TO quora_user;
+   CREATE DATABASE quora_analysis1;
+   CREATE USER quora_analysis_admin WITH PASSWORD 'your_password';
+   GRANT ALL PRIVILEGES ON DATABASE quora_analysis TO quora_analysis_admin;
    ```
 
 5. **Configure environment variables:**
@@ -58,10 +60,10 @@ A comprehensive Scrapy-based web scraper to extract all 28,000+ answers from Quo
    cp env_example.txt .env
    ```
    
-   Edit `.env` with your database credentials:
+   Edit `.env_example` with your database credentials:
    ```
-   DATABASE_URL=postgresql://quora_user:your_password@localhost:5432/quora_analysis
-   GOOGLE_EMAIL=sreenivasan.ac92@gmail.com
+   DATABASE_URL=
+   GOOGLE_EMAIL=
    ```
 
 ## Usage
@@ -116,21 +118,25 @@ python run_scraper.py --help
 
 ### Phase 1: Answer Link Discovery (Collection Mode)
 
-1. **Authentication**: Uses Selenium to perform Google OAuth login
-2. **Page Crawling**: Navigates through Kanthaswamy's answer pages
-3. **Link Extraction**: Extracts answer URLs using CSS selector: `a.answer_timestamp::attr(href)`
-4. **Database Storage**: Stores answer links in PostgreSQL with unique IDs
-5. **Progress Tracking**: Logs progress every 100 answers processed
+1. **CDP Connection**: Connects to existing Chrome browser via Chrome DevTools Protocol
+2. **Authentication**: Uses authenticated browser session for Google OAuth
+3. **Infinite Scroll**: Scrolls through Kanthaswamy's answers page for 5 minutes to load all content
+4. **Link Extraction**: Extracts answer URLs using CSS selector: `a.answer_timestamp::attr(href)`
+5. **Duplicate Filtering**: Compares against existing database entries to avoid duplicates
+6. **Database Storage**: Stores only new answer links in PostgreSQL with unique IDs
+7. **Progress Tracking**: Logs progress in real-time during scrolling
 
 ### Phase 2: Answer Data Processing (Processing Mode)
 
-1. **Database Query**: Retrieves incomplete entries (URLs without answer data)
-2. **Answer Page Scraping**: Visits each answer URL to extract detailed data
-3. **Data Extraction**: Extracts question text, answer content, revision links, timestamps
-4. **HTML to Markdown**: Converts answer HTML content to clean Markdown format
-5. **Timestamp Parsing**: Converts raw timestamps to timezone-aware datetime objects
-6. **Database Updates**: Updates existing entries with complete answer data
-7. **Progress Tracking**: Logs progress every 50 processed entries
+1. **CDP Connection**: Reuses existing authenticated Chrome browser session
+2. **Authentication Check**: Verifies Quora authentication before processing
+3. **Database Query**: Retrieves incomplete entries (URLs without answer data)
+4. **Answer Page Scraping**: Visits each answer URL using authenticated browser
+5. **Data Extraction**: Extracts question text, answer content, revision links, timestamps
+6. **HTML to Markdown**: Converts answer HTML content to clean Markdown format
+7. **Timestamp Parsing**: Converts raw timestamps to timezone-aware datetime objects
+8. **Database Updates**: Updates existing entries with complete answer data
+9. **Progress Tracking**: Logs progress every 50 processed entries
 
 ### Database Schema
 
@@ -143,7 +149,7 @@ CREATE TABLE quora_answers (
     answer_content TEXT,            -- Answer content in Markdown format
     revision_link TEXT,             -- Link to answer revision history
     post_timestamp_raw TEXT,        -- Raw timestamp string from Quora
-    post_timestamp_parsed TIMESTAMP -- Parsed timestamp with timezone
+    post_timestamp_parsed TIMESTAMP WITH TIME ZONE -- Parsed timestamp with timezone (IST)
 );
 ```
 
@@ -153,12 +159,63 @@ CREATE TABLE quora_answers (
 - `answered_question_url` - The primary answer URLs
 
 **Processing Mode** populates:
-- `question_url` - Extracted using CSS selector: `.puppeteer_test_question_title a::attr(href)`
-- `question_text` - Extracted using CSS selector: `.puppeteer_test_question_title a::text`
+- `question_url` - Extracted using CSS selector: `.puppeteer_test_question_title .puppeteer_test_link::attr(href)`
+- `question_text` - Extracted using CSS selector: `.puppeteer_test_question_title span[style*='background: none']::text` (with fallback to link text)
 - `answer_content` - Extracted from `div.q-text`, converted to Markdown
 - `revision_link` - From `/log` page using selector: `a.puppeteer_test_link::attr(href)`
 - `post_timestamp_raw` - From `/log` page using selector: `span.c1h7helg.c8970ew:last-child::text`
-- `post_timestamp_parsed` - Parsed from raw timestamp with Pacific timezone
+- `post_timestamp_parsed` - Parsed from raw timestamp with Indian Standard Time (IST) timezone
+
+## Anti-Detection Technology
+
+This scraper uses advanced techniques to avoid detection by Quora's anti-bot systems:
+
+### Chrome DevTools Protocol (CDP) Connection
+
+- **Stealth Browsing**: Connects to existing Chrome browser instead of launching new automated instances
+- **Session Reuse**: Leverages existing authenticated sessions to avoid repeated logins
+- **Natural Behavior**: Uses the same browser that a human would use for normal browsing
+
+### Implementation Details
+
+1. **CDP Setup**: Connects to Chrome running with `--remote-debugging-port=9222`
+2. **WebDriver Masking**: Removes `navigator.webdriver` property to hide automation
+3. **Minimal Chrome Options**: Uses only essential Chrome flags for maximum compatibility
+4. **Authentication Reuse**: Shares authentication cookies between collection and processing modes
+
+### Browser Setup
+
+Start Chrome with debugging enabled:
+```bash
+python start_chrome_debug.py
+```
+
+Or manually:
+```bash
+# macOS ARM (M1/M2/M3)
+exec arch -arm64 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 --user-data-dir=/tmp/chrome_debug_profile
+
+# macOS Intel
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 --user-data-dir=/tmp/chrome_debug_profile
+
+# Windows  
+"C:\Program Files\Google\Chrome\Application\chrome.exe" \
+  --remote-debugging-port=9222 --user-data-dir=C:\temp\chrome_debug_profile
+```
+
+### Testing Anti-Detection
+
+Test your setup:
+```bash
+python test_answer_processor.py
+```
+
+This will verify:
+- CDP connection to existing Chrome
+- Authentication status
+- Ability to access Quora pages without detection
 
 ## Configuration
 
@@ -190,8 +247,9 @@ Key settings in `quora_scraper/settings.py`:
 
 ### Log Files
 
-- `quora_scraper.log` - Detailed scraping logs
-- Console output with real-time progress
+- `quora_scraper.log` - Collection mode logs (URL gathering)
+- `quora_process.log` - Processing mode logs (answer data extraction)
+- Console output with real-time progress for both modes
 
 ### Progress Tracking
 
