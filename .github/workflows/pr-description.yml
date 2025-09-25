@@ -1,0 +1,18 @@
+name: Generate PR Description
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  generate-description:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Generate PR Description
+        uses: abhinavchadaga/claude-automated-pr-desc-action@v1
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          ignore-patterns: 'dist/**,**/*.min.js,node_modules/**,**/*.lock'
