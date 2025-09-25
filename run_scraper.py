@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from quora_scraper.spiders.quora_profile_spider import QuoraProfileSpider
 from quora_scraper.answer_processor import run_answer_processor
+from quora_scraper.parallel_answer_processor import run_parallel_processor
 
 def setup_logging(log_file='quora_scraper.log'):
     """Setup logging configuration"""
@@ -88,32 +89,40 @@ def run_collector():
         logger.error(f"Error running collector: {e}")
         return False
 
-def run_processor():
-    """Run the Quora answer data processor"""
+def run_processor(workers=None):
+    """Run the Quora answer data processor
+
+    Args:
+        workers: Number of parallel workers (None for sequential, 1-5 for parallel)
+    """
     # Load environment variables
     load_dotenv()
-    
+
     # Setup logging for processing
     setup_logging('quora_process.log')
-    
+
     # Check environment
     check_environment()
-    
+
     logger = logging.getLogger(__name__)
-    
+
     try:
-        logger.info("Starting Quora Answer Data Processing for existing database entries")
-        
-        # Run the answer processor
-        success = run_answer_processor()
-        
+        if workers and workers > 1:
+            logger.info(f"Starting Parallel Quora Answer Processing with {workers} workers")
+            # Run the parallel processor
+            success = run_parallel_processor(num_workers=workers)
+        else:
+            logger.info("Starting Sequential Quora Answer Data Processing")
+            # Run the sequential processor
+            success = run_answer_processor()
+
         if success:
             logger.info("Answer processing completed successfully")
         else:
             logger.error("Answer processing failed")
-        
+
         return success
-        
+
     except KeyboardInterrupt:
         logger.info("Processing interrupted by user")
         return False
@@ -128,9 +137,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
         Examples:
-        python run_scraper.py                    # Collect new answer URLs (default)
-        python run_scraper.py --mode collect     # Collect new answer URLs  
-        python run_scraper.py --mode process     # Process existing URLs and populate data
+        python run_scraper.py                         # Collect new answer URLs (default)
+        python run_scraper.py --mode collect          # Collect new answer URLs
+        python run_scraper.py --mode process          # Process existing URLs sequentially
+        python run_scraper.py --mode process --workers 3   # Process with 3 parallel workers
+        python run_scraper.py --mode process --workers 5   # Process with 5 parallel workers (max)
                 """
             )
     
@@ -139,6 +150,13 @@ def main():
         choices=['collect', 'process'],
         default='collect',
         help='Scraper mode: "collect" to gather answer URLs, "process" to populate existing entries (default: collect)'
+    )
+
+    parser.add_argument(
+        '--workers',
+        type=int,
+        default=None,
+        help='Number of parallel workers for processing mode (1-5, default: sequential processing)'
     )
     
     args = parser.parse_args()
@@ -154,7 +172,12 @@ def main():
         print("New URLs will be saved to the database.")
         print("Log file: quora_scraper.log")
     else:
-        print("MODE: Answer Data Processing") 
+        print("MODE: Answer Data Processing")
+        if args.workers and args.workers > 1:
+            print(f"PARALLEL PROCESSING: {args.workers} workers")
+            print(f"Chrome ports: {9222} - {9222 + args.workers - 1}")
+        else:
+            print("SEQUENTIAL PROCESSING: Single worker")
         print("This will process existing answer URLs in the database and populate:")
         print("- Question URL and text")
         print("- Answer content (converted to Markdown)")
@@ -181,15 +204,34 @@ def main():
     if args.mode == 'process':
         print("IMPORTANT NOTES for Processing Mode:")
         print("AUTHENTICATION REQUIREMENT:")
-        print("- Processing mode requires an authenticated Chrome session")
-        print("- If you haven't run the collector recently, you may need to:")
-        print("  1. Start Chrome with the command:")
-        print("     exec arch -arm64 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \\")
-        print("       --remote-debugging-port=9222 --user-data-dir=/tmp/chrome_debug_profile")
-        print("  2. Authenticate to Quora manually in the browser")
-        print("  3. Then run the processor")
+        print("- Processing mode requires authenticated Chrome session(s)")
+
+        if args.workers and args.workers > 1:
+            # Validate worker count
+            if args.workers > 5:
+                print(f"\nERROR: Maximum 5 workers allowed. You specified {args.workers}.")
+                sys.exit(1)
+
+            print(f"\nPARALLEL MODE: {args.workers} Chrome instances required")
+            print("- If Chrome instances are not already running, they will be started automatically")
+            print("- Ports to be used: ", end="")
+            ports = [str(9222 + i) for i in range(args.workers)]
+            print(", ".join(ports))
+            print()
+            print("To manually start Chrome instances (optional):")
+            for i in range(args.workers):
+                port = 9222 + i
+                print(f"  Terminal {i+1}: /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \\")
+                print(f"    --remote-debugging-port={port} --user-data-dir=/tmp/chrome_debug_profile_{port}")
+        else:
+            print("\nSEQUENTIAL MODE: Single Chrome instance")
+            print("- If not already running, start Chrome with:")
+            print("  /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \\")
+            print("    --remote-debugging-port=9222 --user-data-dir=/tmp/chrome_debug_profile")
+
+        print("\nAuthenticate to Quora in each Chrome instance if not already logged in.")
         print()
-        
+
         response = input("Continue with processing mode? (y/N): ")
         if response.lower() != 'y':
             print("Exiting.")
@@ -199,7 +241,7 @@ def main():
     if args.mode == 'collect':
         success = run_collector()
     else:
-        success = run_processor()
+        success = run_processor(workers=args.workers)
     
     if success:
         print(f"\n{args.mode.title()} mode completed successfully!")
