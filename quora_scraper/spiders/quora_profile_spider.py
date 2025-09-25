@@ -1,13 +1,11 @@
 import scrapy
 import time
 import logging
-from urllib.parse import urljoin, urlparse
-from selenium import webdriver
+from urllib.parse import urljoin
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import TimeoutException
 from ..items import QuoraAnswerItem
-from quora_scraper.database import DatabaseManager
+from quora_scraper.database import database_context
+from quora_scraper.chrome_driver_manager import get_chrome_manager
 
 logger = logging.getLogger(__name__)
 
@@ -31,43 +29,34 @@ class QuoraProfileSpider(scrapy.Spider):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.driver = None
+        self.chrome_manager = get_chrome_manager()
         self.seen_answer_urls = set()
         self.database_saved_urls = set()  # URLs already in database
         self.answers_found = 0
         self.scroll_count = 0
         self.no_new_answers_count = 0
-        
-        # Disable verbose selenium and urllib3 logging
-        logging.getLogger('selenium.webdriver.remote.remote_connection').setLevel(logging.WARNING)
-        logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
-        
+
         # Load existing URLs from database at startup
         self.load_existing_urls_from_database()
         
     def load_existing_urls_from_database(self):
         """Load all existing answered_question_url from database to avoid duplicates"""
-        
+
         logger.info("Loading existing URLs from database...")
-        
+
         try:
-            # Create DatabaseManager instance and connect
-            db_manager = DatabaseManager()
-            db_manager.connect()
-            
-            # Get all existing URLs
-            self.database_saved_urls = db_manager.get_all_answer_urls()
-            
-            # Disconnect
-            db_manager.disconnect()
-            
+            # Use context manager for database operations
+            with database_context() as db:
+                # Get all existing URLs
+                self.database_saved_urls = db.get_all_answer_urls()
+
         except Exception as e:
             logger.error(f"Error loading existing URLs from database: {e}")
             logger.warning("Continuing without existing URL filtering...")
             self.database_saved_urls = set()  # Empty set if database read fails
     
-    async def start(self):
-        """Generate the initial request using the new async start method"""
+    def start_requests(self):
+        """Generate the initial request using the standard Scrapy start_requests method"""
         # Instead of making HTTP requests, we'll use the authenticated Selenium driver
         # The middleware will handle authentication, then we'll use that driver directly
         yield scrapy.Request(
@@ -77,54 +66,28 @@ class QuoraProfileSpider(scrapy.Spider):
             meta={'use_selenium': True}  # Flag to indicate we want to use Selenium
         )
     
-    def setup_selenium_driver(self):
-        """Setup Selenium driver for scrolling"""
-        if self.driver is None:
-            # Try to get the driver from the middleware first
-            if hasattr(self.crawler.engine.downloader, 'middleware') and hasattr(self.crawler.engine.downloader.middleware, 'middlewares'):
-                for middleware in self.crawler.engine.downloader.middleware.middlewares:
-                    if hasattr(middleware, 'driver') and middleware.driver:
-                        self.driver = middleware.driver
-                        logger.info("Using shared driver from AuthMiddleware")
-                        return
-            
-            # Fallback: create our own driver if middleware driver not available
-            chrome_options = Options()
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--window-size=1920,1080')
-            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-            # Remove problematic options that aren't compatible with ChromeDriver 138
-            # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            # chrome_options.add_experimental_option('useAutomationExtension', False)
-            # Comment out headless for debugging
-            # chrome_options.add_argument('--headless')
-            
-            self.driver = webdriver.Chrome(options=chrome_options)
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            logger.info("Selenium driver initialized for scrolling")
-
     def parse_with_selenium(self, response):
         """Parse answers page with 300-second scrolling to load all content"""
 
-        if not check_quora_authentication(self.driver):
-            logger.error("Not authenticated to Quora. Please login in the browser first to authenticate.")
-            import pdb; pdb.set_trace()
-            return
-
         logger.info(f"Starting to process {response.url}")
         logger.info(f"Database contains {len(self.database_saved_urls)} existing URLs to skip")
-        
-        # Setup Selenium driver if not already done
-        self.setup_selenium_driver()
+
+        # Setup Chrome driver first
+        if not self.chrome_manager.setup_driver():
+            logger.error("Failed to setup Chrome driver")
+            return
+
+        # Now check authentication with the properly set up driver
+        if not self.chrome_manager.is_authenticated():
+            logger.error("Not authenticated to Quora. Please login in the browser first to authenticate.")
+            return
         
         # Load the page in Selenium
-        self.driver.get(response.url)
+        self.chrome_manager.get_driver().get(response.url)
         time.sleep(5)  # Wait for initial page load
         
         # Scroll for 300 seconds and collect all answer links
-        number_of_seconds_to_scroll = len(self.database_saved_urls)
+        number_of_seconds_to_scroll = 300 # len(self.database_saved_urls)
         all_answer_links = self.scroll_for_duration(number_of_seconds_to_scroll)  # 300 seconds = 5 minutes
         import pdb; pdb.set_trace()
         
@@ -161,7 +124,7 @@ class QuoraProfileSpider(scrapy.Spider):
         logger.info(f"Total new answers found in this session: {self.answers_found}")
         
         # Clean up driver
-        self.cleanup_driver()
+        self.chrome_manager.cleanup()
         
     def scroll_for_duration(self, duration_seconds):
         """Scroll through the page for a specified duration and collect all answer links"""
@@ -169,7 +132,7 @@ class QuoraProfileSpider(scrapy.Spider):
         
         all_links = set()
         start_time = time.time()
-        last_height = self.driver.execute_script("return document.body.scrollHeight")
+        last_height = self.chrome_manager.get_driver().execute_script("return document.body.scrollHeight")
         scroll_attempts_without_new_content = 0
         total_scroll_attempts = 0
         
@@ -186,13 +149,13 @@ class QuoraProfileSpider(scrapy.Spider):
             logger.info(f"Scroll attempt {total_scroll_attempts} (t={elapsed_time}s): Found {len(current_links)} links on page, {new_links_found} new. Total unique: {len(all_links)}")
             
             # Scroll down to bottom
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            self.chrome_manager.get_driver().execute_script("window.scrollTo(0, document.body.scrollHeight);")
             
             # Wait for new content to load
             time.sleep(1)
             
             # Calculate new scroll height and compare with last scroll height
-            new_height = self.driver.execute_script("return document.body.scrollHeight")
+            new_height = self.chrome_manager.get_driver().execute_script("return document.body.scrollHeight")
             
             if new_height == last_height:
                 # No new content loaded
@@ -219,7 +182,7 @@ class QuoraProfileSpider(scrapy.Spider):
             links = []
             
             # Try the primary CSS selector
-            elements = self.driver.find_elements(By.CSS_SELECTOR, "a.answer_timestamp")
+            elements = self.chrome_manager.get_driver().find_elements(By.CSS_SELECTOR, "a.answer_timestamp")
             for element in elements:
                 href = element.get_attribute('href')
                 if href:
@@ -230,17 +193,10 @@ class QuoraProfileSpider(scrapy.Spider):
             logger.error(f"Error extracting links with Selenium: {e}")
             return []
     
-    def cleanup_driver(self):
-        """Clean up Selenium driver"""
-        if self.driver:
-            self.driver.quit()
-            self.driver = None
-            logger.info("Selenium driver cleaned up")
-    
     def closed(self, reason):
         """Called when the spider closes"""
         # Ensure driver is cleaned up
-        self.cleanup_driver()
+        self.chrome_manager.cleanup()
         
         logger.info(f"Spider closed. Reason: {reason}")
         logger.info(f"New answers found in this session: {self.answers_found}")

@@ -6,8 +6,11 @@ A comprehensive Scrapy-based web scraper to extract all 28,000+ answers from Quo
 
 - **Google OAuth Authentication**: Automated login via Google OAuth
 - **Anti-Detection Technology**: Chrome DevTools Protocol (CDP) connection for stealth browsing
+- **Centralized Chrome Management**: Singleton ChromeDriverManager eliminates code duplication
 - **Respectful Scraping**: Configurable delays and concurrent request limits
-- **PostgreSQL Storage**: Robust database storage with incremental saves
+- **PostgreSQL Storage**: Robust database storage with incremental saves and context managers
+- **Enhanced Logging**: Separate file and console logging with single-line progress updates
+- **Data Validation**: Critical field validation prevents saving incomplete data
 - **Progress Monitoring**: Real-time logging and progress tracking
 - **Error Handling**: Comprehensive retry logic and graceful error handling
 - **Resume Capability**: Can resume from interruptions without data loss
@@ -159,12 +162,14 @@ CREATE TABLE quora_answers (
 - `answered_question_url` - The primary answer URLs
 
 **Processing Mode** populates:
-- `question_url` - Extracted using CSS selector: `.puppeteer_test_question_title .puppeteer_test_link::attr(href)`
-- `question_text` - Extracted using CSS selector: `.puppeteer_test_question_title span[style*='background: none']::text` (with fallback to link text)
-- `answer_content` - Extracted from `div.q-text`, converted to Markdown
-- `revision_link` - From `/log` page using selector: `a.puppeteer_test_link::attr(href)`
-- `post_timestamp_raw` - From `/log` page using selector: `span.c1h7helg.c8970ew:last-child::text`
+- `question_url` - Extracted using CSS selector: `a.puppeteer_test_link:has(.puppeteer_test_question_title)`
+- `question_text` - Extracted using CSS selector: `.puppeteer_test_question_title span`
+- `answer_content` - Extracted from `div.q-text[style*='max-width: 100%'] span.q-box.qu-userSelect--text`, converted to Markdown
+- `revision_link` - From `/log` page using selector: `a.puppeteer_test_link[href*='/log/revision/']`
+- `post_timestamp_raw` - From `/log` page using selector: `span.c1h7helg.c8970ew:last-child`
 - `post_timestamp_parsed` - Parsed from raw timestamp with Indian Standard Time (IST) timezone
+
+**Note**: If critical fields (question_text and answer_content) fail to extract, the entire entry is skipped to prevent database corruption with empty values.
 
 ## Anti-Detection Technology
 
@@ -182,6 +187,8 @@ This scraper uses advanced techniques to avoid detection by Quora's anti-bot sys
 2. **WebDriver Masking**: Removes `navigator.webdriver` property to hide automation
 3. **Minimal Chrome Options**: Uses only essential Chrome flags for maximum compatibility
 4. **Authentication Reuse**: Shares authentication cookies between collection and processing modes
+5. **Singleton ChromeDriverManager**: Centralizes all Chrome operations, eliminating code duplication
+6. **Smart Connection**: Attempts to connect to existing Chrome instance before starting new one
 
 ### Browser Setup
 
@@ -249,7 +256,14 @@ Key settings in `quora_scraper/settings.py`:
 
 - `quora_scraper.log` - Collection mode logs (URL gathering)
 - `quora_process.log` - Processing mode logs (answer data extraction)
-- Console output with real-time progress for both modes
+- `logs/processed_urls_YYYYMMDD_HHMMSS.log` - Detailed URL processing logs with timestamps
+- Console output with clean single-line progress updates
+
+### Logging Behavior
+
+- **Console**: Shows minimal single-line progress updates (e.g., `Processing: 4/259 (1.5%) | Success: 4 | Failed: 0`)
+- **File Logs**: Contains detailed processing information, URLs, and error messages
+- **Failed URLs**: Displayed in console for immediate visibility
 
 ### Progress Tracking
 
@@ -305,22 +319,28 @@ db.disconnect()
 quora_analysis/
 ├── quora_scraper/
 │   ├── __init__.py
-│   ├── settings.py          # Scrapy configuration
-│   ├── items.py             # Data item definitions
-│   ├── pipelines.py         # Data processing pipelines
-│   ├── middlewares.py       # Authentication middleware
-│   ├── database.py          # Database management
+│   ├── settings.py              # Scrapy configuration
+│   ├── items.py                 # Data item definitions
+│   ├── pipelines.py             # Data processing pipelines
+│   ├── middlewares.py           # Authentication middleware
+│   ├── database.py              # Database management with context managers
+│   ├── chrome_driver_manager.py # Centralized Chrome driver management
+│   ├── answer_processor.py      # Answer data extraction and processing
+│   ├── common.py                # Common utilities and authentication checks
 │   └── spiders/
 │       ├── __init__.py
 │       └── quora_profile_spider.py  # Main spider
-├── main.py                  # Interactive interface
-├── run_scraper.py          # Direct scraper runner
-├── setup_database.py       # Database initialization
+├── main.py                      # Interactive interface
+├── run_scraper.py              # Direct scraper runner
+├── setup_database.py           # Database initialization
 ├── test_database_integration.py  # Database testing
-├── scrapy.cfg              # Scrapy project config
-├── env_example.txt         # Environment variables example
-├── pyproject.toml          # Project dependencies
-└── README.md               # This file
+├── test_answer_processor.py    # Answer processor testing
+├── scrapy.cfg                  # Scrapy project config
+├── .env                        # Environment variables (not in git)
+├── .gitignore                  # Git ignore file
+├── CLAUDE.md                   # Claude AI guidance file
+├── pyproject.toml              # Project dependencies
+└── README.md                   # This file
 ```
 
 ## Implementation Status
