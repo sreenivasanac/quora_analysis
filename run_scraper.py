@@ -180,11 +180,6 @@ def main():
     # Show additional info for process mode
     if args.mode == 'process':
         print("IMPORTANT NOTES for Processing Mode:")
-        print("- This requires the html-to-markdown library: uv pip install html-to-markdown")
-        print("- Processing will take 2-3 seconds per answer (respectful to Quora)")
-        print("- Progress is logged every 50 processed entries")
-        print("- You can interrupt and resume - processed entries are saved immediately")
-        print()
         print("AUTHENTICATION REQUIREMENT:")
         print("- Processing mode requires an authenticated Chrome session")
         print("- If you haven't run the collector recently, you may need to:")

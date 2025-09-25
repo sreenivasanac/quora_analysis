@@ -3,6 +3,7 @@ import psycopg2
 import psycopg2.extras
 from typing import Optional
 import logging
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +233,24 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get incomplete count: {e}")
             return 0
+
+
+@contextmanager
+def database_context(database_url: Optional[str] = None):
+    """
+    Context manager for database operations.
+    Ensures proper connection handling and cleanup.
+
+    Usage:
+        with database_context() as db:
+            db.insert_answer_link(url)
+    """
+    db_manager = DatabaseManager(database_url)
+    try:
+        db_manager.connect()
+        yield db_manager
+    finally:
+        db_manager.disconnect()
 
 
  

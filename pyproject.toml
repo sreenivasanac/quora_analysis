@@ -23,3 +23,11 @@ dev = [
     "black>=23.0.0",
     "flake8>=6.0.0",
 ]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["quora_scraper*"]
+exclude = ["logs*", "prompts*"]
