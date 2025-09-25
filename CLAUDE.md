@@ -59,10 +59,21 @@ python start_chrome_debug.py
 
 ### Core Components
 
+#### Chrome Driver Management (`quora_scraper/chrome_driver_manager.py`)
+- **ChromeDriverManager**: Centralized Chrome driver operations using singleton pattern
+- **Key Features**:
+  - Eliminates ~395+ lines of duplicate code across modules
+  - Singleton pattern via `get_chrome_manager()`
+  - Smart CDP connection - tries existing Chrome before starting new instance
+  - Platform-specific driver setup (Mac ARM, Intel, Windows)
+  - Stealth mode application to hide automation
+
 #### Database Layer (`quora_scraper/database.py`)
 - **DatabaseManager**: Handles all PostgreSQL operations
+- **database_context()**: Context manager for safe database operations
 - Schema: `quora_answers` table with fields for URLs, question text, answer content, timestamps
 - Incremental processing: tracks complete vs incomplete entries
+- Data validation: Prevents saving empty/None values for critical fields
 
 #### Scrapy Framework
 - **Spider**: `quora_scraper/spiders/quora_profile_spider.py` - main scraper logic
@@ -76,9 +87,17 @@ python start_chrome_debug.py
 - **Rate Limiting**: Configurable delays (0.3s default) and concurrent request limits (3 max)
 
 #### Answer Processing (`quora_scraper/answer_processor.py`)
-- Extracts question text, answer content, revision links, timestamps
-- Converts HTML to Markdown using `html2text`
-- Parses timestamps with timezone support (IST)
+- **QuoraAnswerProcessor**: Processes existing database entries
+- **Key Features**:
+  - Extracts question text, answer content, revision links, timestamps
+  - Converts HTML to Markdown using `html2text`
+  - Parses timestamps with timezone support (IST)
+  - Critical field validation (question_text and answer_content required)
+  - Enhanced logging system:
+    - File logging to `logs/processed_urls_YYYYMMDD_HHMMSS.log`
+    - Single-line progress updates in terminal
+    - Separate URL logger that doesn't propagate to console
+  - Failed URL tracking and reporting
 
 ## Environment Configuration
 
@@ -94,7 +113,11 @@ GOOGLE_EMAIL=your_email@example.com
 - **Authentication**: Uses existing Google OAuth session in browser
 - **Database**: PostgreSQL required with specific schema
 - **Rate Limiting**: Respectful scraping with 0.3s delays between requests
-- **Logging**: Separate log files for collection (`quora_scraper.log`) and processing (`quora_process.log`)
+- **Logging**:
+  - Collection mode: `quora_scraper.log`
+  - Processing mode: `quora_process.log`
+  - URL processing: `logs/processed_urls_YYYYMMDD_HHMMSS.log`
+  - Console shows clean single-line progress updates
 
 ## File Structure
 
@@ -102,10 +125,12 @@ GOOGLE_EMAIL=your_email@example.com
 - `run_scraper.py` - Direct scraper runner with mode selection
 - `setup_database.py` - Database initialization
 - `quora_scraper/` - Main Scrapy project directory
+  - `chrome_driver_manager.py` - Centralized Chrome driver management (singleton)
   - `spiders/quora_profile_spider.py` - Core spider implementation
-  - `database.py` - Database operations
-  - `answer_processor.py` - Answer data extraction
-  - `middlewares.py` - Chrome CDP and authentication
+  - `database.py` - Database operations with context managers
+  - `answer_processor.py` - Answer data extraction with enhanced logging
+  - `middlewares.py` - Chrome CDP and authentication (uses ChromeDriverManager)
+  - `common.py` - Shared utilities and authentication checking
   - `settings.py` - Scrapy configuration
 
 ## Development Tips
@@ -115,3 +140,25 @@ GOOGLE_EMAIL=your_email@example.com
 - Monitor progress through log files and console output
 - Database operations are incremental - can resume after interruption
 - Check authentication status before processing with `test_answer_processor.py`
+- Chrome driver is managed centrally - use `get_chrome_manager()` to access
+- Database operations should use `database_context()` context manager
+- Critical fields (question_text, answer_content) are validated before saving
+- Failed URLs are tracked and reported at the end of processing
+
+## Recent Architecture Improvements
+
+### Code Refactoring (Eliminated ~395+ lines of duplication)
+- Created `ChromeDriverManager` class as central Chrome management
+- Implemented singleton pattern for driver sharing
+- Removed duplicate Chrome setup code from spider, middleware, and processor
+
+### Enhanced Error Handling
+- Critical field validation prevents database corruption
+- Failed URLs are tracked and displayed
+- Better separation of concerns between modules
+
+### Improved Logging
+- File and console logging are separated
+- URL processing details go to timestamped log files
+- Console shows clean, single-line progress updates
+- Reduced verbose output (e.g., Chrome tab information)
