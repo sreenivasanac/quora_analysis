@@ -67,11 +67,11 @@ class DatabaseManager:
     def insert_answer_link(self, answered_question_url: str) -> int:
         """Insert a new answer link and return the ID"""
         insert_sql = """
-        INSERT INTO quora_answers (answered_question_url) 
-        VALUES (%s) 
+        INSERT INTO quora_answers (answered_question_url)
+        VALUES (%s)
         RETURNING id;
         """
-        
+
         try:
             self.cursor.execute(insert_sql, (answered_question_url,))
             result = self.cursor.fetchone()
@@ -79,6 +79,36 @@ class DatabaseManager:
             return result['id']
         except Exception as e:
             logger.error(f"Failed to insert answer link: {e}")
+            self.connection.rollback()
+            raise
+
+    def insert_answer_links_batch(self, answer_urls: list) -> int:
+        """Insert multiple answer links in a single batch operation and return count of inserted"""
+        if not answer_urls:
+            return 0
+
+        insert_sql = """
+        INSERT INTO quora_answers (answered_question_url)
+        VALUES %s
+        ON CONFLICT (answered_question_url) DO NOTHING
+        """
+
+        try:
+            # Prepare data for batch insert
+            values = [(url,) for url in answer_urls]
+
+            # Use execute_values for efficient batch insert
+            from psycopg2.extras import execute_values
+            execute_values(self.cursor, insert_sql, values, template=None, page_size=100)
+
+            inserted_count = self.cursor.rowcount
+            self.connection.commit()
+
+            logger.info(f"Batch inserted {inserted_count} new answer URLs (out of {len(answer_urls)} provided)")
+            return inserted_count
+
+        except Exception as e:
+            logger.error(f"Failed to batch insert answer links: {e}")
             self.connection.rollback()
             raise
     

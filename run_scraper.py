@@ -61,20 +61,34 @@ def run_collector():
     
     try:
         logger.info("Starting Quora Answer URL Collection for Kanthaswamy Balasubramaniam")
-        
+
+        # Configure Scrapy logging to suppress version info
+        from scrapy import settings as scrapy_settings
+        import scrapy.utils.log
+
         # Get Scrapy settings
         settings = get_project_settings()
         settings.setmodule('quora_scraper.settings')
-        
+
+        # Suppress all verbose Scrapy startup logging
+        logging.getLogger('scrapy').setLevel(logging.WARNING)
+        logging.getLogger('scrapy.utils.log').setLevel(logging.WARNING)
+        logging.getLogger('scrapy.core.engine').setLevel(logging.WARNING)
+        logging.getLogger('scrapy.addons').setLevel(logging.WARNING)
+        logging.getLogger('scrapy.crawler').setLevel(logging.WARNING)
+        logging.getLogger('scrapy.middleware').setLevel(logging.WARNING)
+        logging.getLogger('asyncio').setLevel(logging.WARNING)
+        logging.getLogger('scrapy.extensions').setLevel(logging.WARNING)
+
         # Override settings from environment if provided
         if os.getenv('SCRAPY_LOG_LEVEL'):
             settings.set('LOG_LEVEL', os.getenv('SCRAPY_LOG_LEVEL'))
-        
+
         if os.getenv('SCRAPY_DOWNLOAD_DELAY'):
             settings.set('DOWNLOAD_DELAY', float(os.getenv('SCRAPY_DOWNLOAD_DELAY')))
-        
-        # Create and start the crawler process
-        process = CrawlerProcess(settings)
+
+        # Create and start the crawler process with custom log configuration
+        process = CrawlerProcess(settings, install_root_handler=False)
         process.crawl(QuoraProfileSpider)
         
         logger.info("Starting URL collection process...")
