@@ -25,8 +25,17 @@ python main.py
 # Collection mode: Collect answer URLs from profile page
 python run_scraper.py --mode collect
 
-# Processing mode: Process existing URLs and populate answer data
+# Sequential processing mode: Process URLs one at a time
 python run_scraper.py --mode process
+
+# Parallel processing mode: Process URLs with multiple workers
+python run_scraper.py --mode process --workers 3  # 3 parallel workers
+python run_scraper.py --mode process --workers 5  # 5 parallel workers (max)
+
+# Start Chrome instances for parallel processing
+python start_parallel_chrome.py -n 3  # Start 3 Chrome instances
+python start_parallel_chrome.py --check  # Check running instances
+python start_parallel_chrome.py --stop  # Stop all instances
 ```
 
 ### Testing
@@ -86,8 +95,9 @@ python start_chrome_debug.py
 - **Session Reuse**: Leverages existing authenticated sessions
 - **Rate Limiting**: Configurable delays (0.3s default) and concurrent request limits (3 max)
 
-#### Answer Processing (`quora_scraper/answer_processor.py`)
-- **QuoraAnswerProcessor**: Processes existing database entries
+#### Answer Processing (`quora_scraper/answer_processor.py` and `parallel_answer_processor.py`)
+- **QuoraAnswerProcessor**: Sequential processing of existing database entries
+- **ParallelAnswerProcessor**: Parallel processing with multiple workers (NEW)
 - **Key Features**:
   - Extracts question text, answer content, revision links, timestamps
   - Converts HTML to Markdown using `html2text`
@@ -98,6 +108,22 @@ python start_chrome_debug.py
     - Single-line progress updates in terminal
     - Separate URL logger that doesn't propagate to console
   - Failed URL tracking and reporting
+
+##### Parallel Processing Architecture (NEW)
+- **Multi-worker Processing**: 1-5 parallel workers (default: 3)
+- **Chrome Instance Management**:
+  - Each worker uses separate Chrome instance (ports 9222-9226)
+  - Automatic Chrome startup if not running
+  - Independent browser sessions per worker
+- **Work Distribution**:
+  - URLs evenly divided among workers
+  - No duplicate processing
+  - Each worker has own database connection
+- **Progress Tracking**:
+  - Real-time aggregated progress from all workers
+  - ETA calculation based on processing rate
+  - Failed URL collection across workers
+- **Performance**: 3-5x faster than sequential processing
 
 ## Environment Configuration
 
@@ -122,13 +148,15 @@ GOOGLE_EMAIL=your_email@example.com
 ## File Structure
 
 - `main.py` - Interactive CLI interface
-- `run_scraper.py` - Direct scraper runner with mode selection
+- `run_scraper.py` - Direct scraper runner with mode selection (supports --workers)
 - `setup_database.py` - Database initialization
+- `start_parallel_chrome.py` - Helper to start multiple Chrome instances (NEW)
 - `quora_scraper/` - Main Scrapy project directory
   - `chrome_driver_manager.py` - Centralized Chrome driver management (singleton)
   - `spiders/quora_profile_spider.py` - Core spider implementation
   - `database.py` - Database operations with context managers
-  - `answer_processor.py` - Answer data extraction with enhanced logging
+  - `answer_processor.py` - Sequential answer data extraction with enhanced logging
+  - `parallel_answer_processor.py` - Parallel processing with multiple workers (NEW)
   - `middlewares.py` - Chrome CDP and authentication (uses ChromeDriverManager)
   - `common.py` - Shared utilities and authentication checking
   - `settings.py` - Scrapy configuration
