@@ -1,0 +1,25 @@
+{
+  "functions": {
+    "api/*.py": {
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/timestamps/all",
+      "destination": "/api/timestamps_all"
+    },
+    {
+      "source": "/api/timestamps",
+      "destination": "/api/timestamps"
+    },
+    {
+      "source": "/api/stats",
+      "destination": "/api/stats"
+    },
+    {
+      "source": "/api/health",
+      "destination": "/api/health"
+    }
+  ]
+}

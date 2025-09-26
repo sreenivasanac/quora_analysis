@@ -64,3 +64,4 @@ quora_process.log
 # Windows
 Thumbs.db
 ehthumbs.db
+.vercel
