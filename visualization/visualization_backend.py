@@ -1,50 +1,22 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import psycopg2
-import psycopg2.extras
-from datetime import datetime, timedelta
-import pytz
+import sys
 import os
 from dotenv import load_dotenv
-from typing import List, Dict, Any
+
+# Add the project root to Python path so we can import utils
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from utils.database import get_timestamps_for_date_range, get_statistics, get_all_timestamps
+from utils.timezone_utils import (
+    convert_to_timezone, get_date_range_for_timezone,
+    calculate_distributions, TIMEZONES
+)
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-
-# Timezone mappings
-TIMEZONES = {
-    'IST': 'Asia/Kolkata',      # UTC+5:30
-    'CST': 'Asia/Shanghai',     # UTC+8:00
-    'PST': 'America/Los_Angeles', # UTC-8:00 (varies with DST)
-    'EST': 'America/New_York'    # UTC-5:00 (varies with DST)
-}
-
-def get_db_connection():
-    """Create and return a database connection"""
-    database_url = os.getenv('DATABASE_URL')
-    if not database_url:
-        raise ValueError("DATABASE_URL environment variable is required")
-    return psycopg2.connect(database_url)
-
-def convert_to_timezone(timestamp, target_tz_name):
-    """Convert timestamp to target timezone"""
-    if timestamp is None:
-        return None
-
-    target_tz = pytz.timezone(TIMEZONES.get(target_tz_name, 'Asia/Kolkata'))
-    ist_tz = pytz.timezone('Asia/Kolkata')
-
-    # If timestamp is naive, assume it's in IST (as per database storage)
-    if timestamp.tzinfo is None:
-        timestamp = ist_tz.localize(timestamp)
-    elif timestamp.tzinfo.utcoffset(timestamp) is None:
-        # If tzinfo exists but no offset, replace with IST
-        timestamp = ist_tz.localize(timestamp.replace(tzinfo=None))
-
-    # Convert to target timezone
-    return timestamp.astimezone(target_tz)
 
 @app.route('/api/timestamps', methods=['GET'])
 def get_timestamps():
@@ -64,45 +36,13 @@ def get_timestamps():
         if timezone_name not in TIMEZONES:
             timezone_name = 'IST'
 
-        # Parse dates
-        if start_date_str and end_date_str:
-            start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
-            end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
-        else:
-            # Default to current week in the selected timezone
-            selected_tz = pytz.timezone(TIMEZONES.get(timezone_name, 'Asia/Kolkata'))
-            now = datetime.now(selected_tz)
-            start_date = now - timedelta(days=now.weekday())
-            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_date = start_date + timedelta(days=7)
+        # Get date range using shared utility
+        start_date, end_date, start_date_ist, end_date_ist = get_date_range_for_timezone(
+            start_date_str, end_date_str, timezone_name
+        )
 
-        # Convert date range to IST for database query (since DB stores in IST)
-        ist_tz = pytz.timezone('Asia/Kolkata')
-        if start_date.tzinfo:
-            start_date_ist = start_date.astimezone(ist_tz)
-            end_date_ist = end_date.astimezone(ist_tz)
-        else:
-            # If no timezone info, assume UTC
-            start_date_ist = pytz.UTC.localize(start_date).astimezone(ist_tz)
-            end_date_ist = pytz.UTC.localize(end_date).astimezone(ist_tz)
-
-        # Connect to database
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        # Query timestamps with question text and URLs in the range
-        # Note: We query using IST-converted dates since DB stores in IST
-        query = """
-            SELECT post_timestamp_parsed, question_text, answered_question_url
-            FROM quora_answers
-            WHERE post_timestamp_parsed IS NOT NULL
-            AND post_timestamp_parsed >= %s
-            AND post_timestamp_parsed < %s
-            ORDER BY post_timestamp_parsed
-        """
-
-        cursor.execute(query, (start_date_ist.replace(tzinfo=None), end_date_ist.replace(tzinfo=None)))
-        results = cursor.fetchall()
+        # Get data from database using shared utility
+        results = get_timestamps_for_date_range(start_date_ist, end_date_ist)
 
         # Convert timestamps to target timezone and format
         timestamps = []
@@ -120,9 +60,6 @@ def get_timestamps():
                     'answer_url': row['answered_question_url'] or '#'
                 })
 
-        cursor.close()
-        conn.close()
-
         return jsonify({
             'success': True,
             'timestamps': timestamps,
@@ -139,7 +76,7 @@ def get_timestamps():
         }), 500
 
 @app.route('/api/stats', methods=['GET'])
-def get_statistics():
+def get_stats():
     """
     Get overall statistics about the timestamps
     Query params:
@@ -150,65 +87,26 @@ def get_statistics():
         if timezone_name not in TIMEZONES:
             timezone_name = 'IST'
 
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        # Get data from database using shared utility
+        stats_data = get_statistics()
 
-        # Get total count
-        cursor.execute("SELECT COUNT(*) as total FROM quora_answers WHERE post_timestamp_parsed IS NOT NULL")
-        total_count = cursor.fetchone()['total']
-
-        # Get date range
-        cursor.execute("""
-            SELECT
-                MIN(post_timestamp_parsed) as earliest,
-                MAX(post_timestamp_parsed) as latest
-            FROM quora_answers
-            WHERE post_timestamp_parsed IS NOT NULL
-        """)
-        date_range = cursor.fetchone()
-
-        # Get hourly distribution for the selected timezone
-        cursor.execute("""
-            SELECT post_timestamp_parsed
-            FROM quora_answers
-            WHERE post_timestamp_parsed IS NOT NULL
-        """)
-        all_timestamps = cursor.fetchall()
-
-        # Calculate hourly distribution in the target timezone
-        hourly_dist = {hour: 0 for hour in range(24)}
-        weekday_dist = {day: 0 for day in range(7)}  # 0=Monday, 6=Sunday
-
-        for row in all_timestamps:
-            timestamp = row['post_timestamp_parsed']
-            converted = convert_to_timezone(timestamp, timezone_name)
-            if converted:
-                hourly_dist[converted.hour] += 1
-                weekday_dist[converted.weekday()] += 1
-
-        # Find busiest hour and day
-        busiest_hour = max(hourly_dist, key=hourly_dist.get)
-        busiest_day = max(weekday_dist, key=weekday_dist.get)
-
-        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-
-        cursor.close()
-        conn.close()
+        # Calculate distributions in the target timezone using shared utility
+        distributions = calculate_distributions(stats_data['all_timestamps'], timezone_name)
 
         # Convert earliest and latest to target timezone
-        earliest = convert_to_timezone(date_range['earliest'], timezone_name) if date_range['earliest'] else None
-        latest = convert_to_timezone(date_range['latest'], timezone_name) if date_range['latest'] else None
+        earliest = convert_to_timezone(stats_data['earliest'], timezone_name) if stats_data['earliest'] else None
+        latest = convert_to_timezone(stats_data['latest'], timezone_name) if stats_data['latest'] else None
 
         return jsonify({
             'success': True,
             'stats': {
-                'total_count': total_count,
+                'total_count': stats_data['total_count'],
                 'earliest_date': earliest.isoformat() if earliest else None,
                 'latest_date': latest.isoformat() if latest else None,
-                'busiest_hour': busiest_hour,
-                'busiest_day': days[busiest_day],
-                'hourly_distribution': hourly_dist,
-                'weekday_distribution': {days[i]: count for i, count in weekday_dist.items()},
+                'busiest_hour': distributions['busiest_hour'],
+                'busiest_day': distributions['busiest_day'],
+                'hourly_distribution': distributions['hourly_distribution'],
+                'weekday_distribution': distributions['weekday_distribution'],
                 'timezone': timezone_name
             }
         })
@@ -220,7 +118,7 @@ def get_statistics():
         }), 500
 
 @app.route('/api/timestamps/all', methods=['GET'])
-def get_all_timestamps():
+def get_all_timestamps_route():
     """
     Get all timestamps with minimal processing (for initial load or caching)
     Query params:
@@ -231,17 +129,8 @@ def get_all_timestamps():
         if timezone_name not in TIMEZONES:
             timezone_name = 'IST'
 
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        # Get all timestamps
-        cursor.execute("""
-            SELECT post_timestamp_parsed
-            FROM quora_answers
-            WHERE post_timestamp_parsed IS NOT NULL
-            ORDER BY post_timestamp_parsed
-        """)
-        results = cursor.fetchall()
+        # Get data from database using shared utility
+        results = get_all_timestamps()
 
         # Convert to target timezone
         timestamps = []
@@ -250,9 +139,6 @@ def get_all_timestamps():
             converted = convert_to_timezone(timestamp, timezone_name)
             if converted:
                 timestamps.append(converted.isoformat())
-
-        cursor.close()
-        conn.close()
 
         return jsonify({
             'success': True,
