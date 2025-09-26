@@ -189,7 +189,7 @@ def main():
         print("MODE: Answer Data Processing")
         if args.workers and args.workers > 1:
             print(f"PARALLEL PROCESSING: {args.workers} workers")
-            print(f"Chrome ports: {9222} - {9222 + args.workers - 1}")
+            print(f"Chrome ports: {9223} - {9223 + args.workers - 1}")
         else:
             print("SEQUENTIAL PROCESSING: Single worker")
         print("This will process existing answer URLs in the database and populate:")
@@ -229,12 +229,12 @@ def main():
             print(f"\nPARALLEL MODE: {args.workers} Chrome instances required")
             print("- If Chrome instances are not already running, they will be started automatically")
             print("- Ports to be used: ", end="")
-            ports = [str(9222 + i) for i in range(args.workers)]
+            ports = [str(9223 + i) for i in range(args.workers)]
             print(", ".join(ports))
             print()
             print("To manually start Chrome instances (optional):")
             for i in range(args.workers):
-                port = 9222 + i
+                port = 9223 + i
                 print(f"  Terminal {i+1}: /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \\")
                 print(f"    --remote-debugging-port={port} --user-data-dir=/tmp/chrome_debug_profile_{port}")
         else:

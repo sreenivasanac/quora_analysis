@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class ParallelChromeManager(ChromeDriverManager):
     """Chrome manager for parallel processing with specific port"""
 
-    def __init__(self, debug_port: int = 9222):
+    def __init__(self, debug_port: int = 9223):
         super().__init__()
         self.debug_port = debug_port
         self.driver = None
@@ -377,7 +377,7 @@ class ParallelAnswerProcessor:
 
     def __init__(self, num_workers: int = 3):
         self.num_workers = min(num_workers, 5)  # Max 5 workers
-        self.base_debug_port = 9222
+        self.base_debug_port = 9223
         self.failed_urls = []
         self.setup_logging()
 

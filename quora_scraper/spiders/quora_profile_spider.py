@@ -245,8 +245,19 @@ class QuoraProfileSpider(scrapy.Spider):
             # Scroll down to bottom
             self.chrome_manager.get_driver().execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
-            # Wait for content to load (adaptive timing)
-            time.sleep(1.5 if total_scroll_attempts < 50 else 1)
+            # Optimized wait strategy: shorter initial waits, only wait longer when no new content
+            if new_links_found > 0:
+                # Content is still loading, short wait is sufficient
+                time.sleep(0.3)
+            elif scroll_attempts_without_new_content < 5:
+                # No new links but height might still be changing, medium wait
+                time.sleep(0.5)
+            else:
+                # No new content for a while, slightly longer wait to check if more will load
+                time.sleep(1.0)
+
+            # Quick scroll to end again to catch any content that loaded during wait
+            self.chrome_manager.get_driver().execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
             # Calculate new scroll height
             new_height = self.chrome_manager.get_driver().execute_script("return document.body.scrollHeight")

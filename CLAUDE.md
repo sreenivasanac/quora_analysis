@@ -112,7 +112,8 @@ python start_chrome_debug.py
 ##### Parallel Processing Architecture (NEW)
 - **Multi-worker Processing**: 1-5 parallel workers (default: 3)
 - **Chrome Instance Management**:
-  - Each worker uses separate Chrome instance (ports 9222-9226)
+  - Each worker uses separate Chrome instance (ports 9223-9227 for process mode)
+  - Collection mode uses port 9222 (default)
   - Automatic Chrome startup if not running
   - Independent browser sessions per worker
 - **Work Distribution**:
@@ -135,7 +136,10 @@ GOOGLE_EMAIL=your_email@example.com
 
 ## Important Notes
 
-- **Chrome Debugging**: Scraper connects to Chrome running with `--remote-debugging-port=9222`
+- **Chrome Debugging**:
+  - Collection mode: Chrome on port 9222 (default)
+  - Process mode: Chrome on ports 9223+ (9223, 9224, 9225...)
+  - Allows running both modes simultaneously
 - **Authentication**: Uses existing Google OAuth session in browser
 - **Database**: PostgreSQL required with specific schema
 - **Rate Limiting**: Respectful scraping with 0.3s delays between requests
