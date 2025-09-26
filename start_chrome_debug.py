@@ -13,7 +13,7 @@ import os
 
 def start_chrome_with_debugging():
     """Start Chrome with remote debugging enabled"""
-    debug_port = 9222
+    debug_port = 9223
     
     # Check if Chrome is already running with debugging
     try:

@@ -84,7 +84,7 @@ def start_chrome_instance(port, new_window=True):
         return None
 
 
-def stop_all_chrome_instances(base_port=9222, num_instances=5):
+def stop_all_chrome_instances(base_port=9223, num_instances=5):
     """Stop all Chrome instances by closing their debug connections"""
     print("\nStopping Chrome instances...")
     stopped = 0
@@ -142,8 +142,8 @@ Examples:
     parser.add_argument(
         '--base-port',
         type=int,
-        default=9222,
-        help='Base port for Chrome debugging (default: 9222)'
+        default=9223,
+        help='Base port for Chrome debugging (default: 9223)'
     )
 
     args = parser.parse_args()
