@@ -14,10 +14,11 @@ def test_chrome_ports(num_workers=3):
     print(f"Testing Chrome setup for {num_workers} workers...")
     print("=" * 60)
 
-    base_port = 9222
+    base_port = 9223
     available_ports = []
     missing_ports = []
 
+    # Test ports from 9223 to 9223+num_workers-1
     for i in range(num_workers):
         port = base_port + i
         try:
@@ -28,7 +29,7 @@ def test_chrome_ports(num_workers=3):
             else:
                 print(f"✗ Port {port}: Chrome not responding properly")
                 missing_ports.append(port)
-        except Exception as e:
+        except Exception:
             print(f"✗ Port {port}: Chrome not running")
             missing_ports.append(port)
 
@@ -85,7 +86,7 @@ def main():
         print(f"\n📍 Testing {num_workers} worker(s) configuration:")
         if test_chrome_ports(num_workers):
             # Test connection to first port
-            test_chrome_connection(9222)
+            test_chrome_connection(9223)
             break
         else:
             response = input(f"\nStart {num_workers} Chrome instances now? (y/N): ")
@@ -94,7 +95,7 @@ def main():
                 subprocess.run([sys.executable, 'start_parallel_chrome.py', '-n', str(num_workers)])
                 time.sleep(5)  # Wait for Chrome to start
                 if test_chrome_ports(num_workers):
-                    test_chrome_connection(9222)
+                    test_chrome_connection(9223)
                     break
 
     print("\n" + "=" * 60)

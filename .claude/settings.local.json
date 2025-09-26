@@ -1,8 +1,10 @@
 {
-  "outputStyle": "default",
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(uv run:*)"
     ]
-  }
+  },
+  "outputStyle": "default"
 }

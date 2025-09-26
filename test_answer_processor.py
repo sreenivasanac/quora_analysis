@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from quora_scraper.answer_processor import QuoraAnswerProcessor
+from quora_scraper.chrome_driver_manager import ChromeDriverManager
 
 def setup_logging():
     """Setup logging for testing"""
@@ -36,54 +37,61 @@ def test_processor_connection():
     print()
     
     print("This test will:")
-    print("1. Try to connect to existing Chrome instance via CDP (port 9222)")
+    print("1. Try to connect to existing Chrome instance via CDP (port 9223)")
     print("2. Check if authenticated to Quora")
     print("3. Display current browser state")
     print()
-    
+
+    # Create ChromeDriverManager with port 9223 for processing mode
+    chrome_manager = ChromeDriverManager()
+    chrome_manager.debug_port = 9223
+
+    # Create processor and override its chrome_manager
     processor = QuoraAnswerProcessor()
-    
+    processor.chrome_manager = chrome_manager
+
     try:
-        print("Step 1: Setting up Selenium driver with CDP connection...")
-        processor.setup_selenium_driver()
-        
-        if processor.driver:
+        print("Step 1: Setting up Chrome driver with CDP connection on port 9223...")
+        # The processor initializes chrome_manager in __init__
+        if processor.chrome_manager.setup_driver():
             print("✓ Successfully connected to Chrome via CDP")
-            
+
+            driver = processor.chrome_manager.get_driver()
+
             # Get current page info
-            current_url = processor.driver.current_url
-            current_title = processor.driver.title
+            current_url = driver.current_url
+            current_title = driver.title
             print(f"Current page: {current_title}")
             print(f"Current URL: {current_url}")
             print()
-            
+
             print("Step 2: Checking authentication status...")
-            if processor.authenticated:
+            if processor.chrome_manager.is_authenticated():
                 print("✓ Already authenticated to Quora")
             else:
                 print("✗ Not authenticated to Quora")
                 print("Please authenticate manually in the browser and run this test again")
-            
+
             print()
             print("Step 3: Testing navigation to a Quora answer page...")
             test_url = "https://www.quora.com/profile/Kanthaswamy-Balasubramaniam/answers"
-            processor.driver.get(test_url)
-            
+            driver.get(test_url)
+
             import time
             time.sleep(3)
-            
-            final_url = processor.driver.current_url
-            final_title = processor.driver.title
-            
+
+            final_url = driver.current_url
+            final_title = driver.title
+
             print(f"Navigated to: {final_title}")
             print(f"Final URL: {final_url}")
-            
+
             if "profile" in final_url and "Kanthaswamy" in final_url:
                 print("✓ Successfully accessed Kanthaswamy's profile page")
                 print("✓ Authentication appears to be working")
             else:
                 print("✗ Could not access profile page - authentication may be required")
-            
+
         else:
             print("✗ Failed to connect to Chrome")
             print("Make sure Chrome is running with remote debugging:")
@@ -94,9 +102,9 @@ def test_processor_connection():
         print("✗ Test failed - see error above")
         
     finally:
-        if processor.driver:
+        if processor.chrome_manager:
             print("\nCleaning up...")
-            processor.cleanup_driver()
+            processor.chrome_manager.cleanup()
     
     print("\nTest completed.")
 
