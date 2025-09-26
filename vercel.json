@@ -4,16 +4,8 @@
       "runtime": "python3.9"
     }
   },
-  "builds": [
-    {
-      "src": "visualization/visualization_frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "buildCommand": "cd visualization/visualization_frontend && npm run build",
-        "distDir": "visualization/visualization_frontend/build"
-      }
-    }
-  ],
+  "buildCommand": "cd visualization/visualization_frontend && npm run build",
+  "outputDirectory": "visualization/visualization_frontend/build",
   "routes": [
     {
       "src": "/api/timestamps/all",
