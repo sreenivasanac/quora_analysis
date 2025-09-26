@@ -1,6 +1,18 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// Determine the API base URL based on environment
+const getApiBaseUrl = () => {
+  // In production (Vercel), use relative URLs to the same domain
+  if (process.env.NODE_ENV === 'production') {
+    return '/api';
+  }
+
+  // In development, check if custom port is set or use default
+  const devPort = process.env.REACT_APP_API_PORT || '5000';
+  return `http://localhost:${devPort}/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const fetchTimestamps = async (startDate, endDate, timezone) => {
   const response = await axios.get(`${API_BASE_URL}/timestamps`, {
