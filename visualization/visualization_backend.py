@@ -34,10 +34,14 @@ def convert_to_timezone(timestamp, target_tz_name):
         return None
 
     target_tz = pytz.timezone(TIMEZONES.get(target_tz_name, 'Asia/Kolkata'))
+    ist_tz = pytz.timezone('Asia/Kolkata')
 
-    # If timestamp is naive, assume it's in UTC
+    # If timestamp is naive, assume it's in IST (as per database storage)
     if timestamp.tzinfo is None:
-        timestamp = pytz.UTC.localize(timestamp)
+        timestamp = ist_tz.localize(timestamp)
+    elif timestamp.tzinfo.utcoffset(timestamp) is None:
+        # If tzinfo exists but no offset, replace with IST
+        timestamp = ist_tz.localize(timestamp.replace(tzinfo=None))
 
     # Convert to target timezone
     return timestamp.astimezone(target_tz)
@@ -65,19 +69,31 @@ def get_timestamps():
             start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
             end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
         else:
-            # Default to current week
-            now = datetime.now(pytz.UTC)
+            # Default to current week in the selected timezone
+            selected_tz = pytz.timezone(TIMEZONES.get(timezone_name, 'Asia/Kolkata'))
+            now = datetime.now(selected_tz)
             start_date = now - timedelta(days=now.weekday())
             start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=7)
+
+        # Convert date range to IST for database query (since DB stores in IST)
+        ist_tz = pytz.timezone('Asia/Kolkata')
+        if start_date.tzinfo:
+            start_date_ist = start_date.astimezone(ist_tz)
+            end_date_ist = end_date.astimezone(ist_tz)
+        else:
+            # If no timezone info, assume UTC
+            start_date_ist = pytz.UTC.localize(start_date).astimezone(ist_tz)
+            end_date_ist = pytz.UTC.localize(end_date).astimezone(ist_tz)
 
         # Connect to database
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # Query timestamps in the range
+        # Query timestamps with question text and URLs in the range
+        # Note: We query using IST-converted dates since DB stores in IST
         query = """
-            SELECT post_timestamp_parsed
+            SELECT post_timestamp_parsed, question_text, answered_question_url
             FROM quora_answers
             WHERE post_timestamp_parsed IS NOT NULL
             AND post_timestamp_parsed >= %s
@@ -85,7 +101,7 @@ def get_timestamps():
             ORDER BY post_timestamp_parsed
         """
 
-        cursor.execute(query, (start_date, end_date))
+        cursor.execute(query, (start_date_ist.replace(tzinfo=None), end_date_ist.replace(tzinfo=None)))
         results = cursor.fetchall()
 
         # Convert timestamps to target timezone and format
@@ -99,7 +115,9 @@ def get_timestamps():
                     'day': converted.strftime('%A'),
                     'hour': converted.hour,
                     'minute': converted.minute,
-                    'date': converted.strftime('%Y-%m-%d')
+                    'date': converted.strftime('%Y-%m-%d'),
+                    'question_text': row['question_text'] or 'No question text',
+                    'answer_url': row['answered_question_url'] or '#'
                 })
 
         cursor.close()

@@ -1,10 +1,29 @@
-import React, { useMemo } from 'react';
-import * as d3 from 'd3';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import QuestionPopover from './QuestionPopover';
 import './CalendarView.css';
 
 const CalendarView = ({ weekStart, weekEnd, timestamps, timezone }) => {
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+  // Memoize static arrays to prevent unnecessary re-renders
+  const days = useMemo(() => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], []);
+  const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
+
+  // State for popover
+  const [hoveredCell, setHoveredCell] = useState(null);
+  const [pinnedCell, setPinnedCell] = useState(null);
+  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
+  const gridRef = useRef(null);
+  const hoverTimeoutRef = useRef(null);
+
+  // Timezone mapping for date-fns
+  const getTimezoneString = (tz) => {
+    const mapping = {
+      'IST': 'Asia/Kolkata',
+      'CST': 'Asia/Shanghai',
+      'PST': 'America/Los_Angeles',
+      'EST': 'America/New_York'
+    };
+    return mapping[tz] || 'Asia/Kolkata';
+  };
 
   // Process timestamps into a grid structure
   const timestampGrid = useMemo(() => {
@@ -20,9 +39,21 @@ const CalendarView = ({ weekStart, weekEnd, timestamps, timezone }) => {
 
     // Populate grid with timestamps
     timestamps.forEach(ts => {
-      const date = new Date(ts.datetime);
-      const dayOfWeek = date.getDay() === 0 ? 6 : date.getDay() - 1; // Adjust for Monday start
-      const hour = date.getHours();
+      // For timezone-converted data, use the day property from backend if available
+      // Otherwise fall back to parsing the datetime (which may have timezone issues)
+      let dayOfWeek;
+      if (ts.day) {
+        // Convert day name to index (Monday = 0, Sunday = 6)
+        const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        dayOfWeek = dayNames.indexOf(ts.day);
+      } else {
+        const date = new Date(ts.datetime);
+        dayOfWeek = date.getDay() === 0 ? 6 : date.getDay() - 1; // Adjust for Monday start
+      }
+
+      // Use the hour from backend conversion (ts.hour) instead of re-parsing
+      // This preserves the timezone conversion done on the backend
+      const hour = ts.hour !== undefined ? ts.hour : new Date(ts.datetime).getHours();
 
       if (grid[dayOfWeek] && grid[dayOfWeek][hour] !== undefined) {
         grid[dayOfWeek][hour].push(ts);
@@ -32,38 +63,132 @@ const CalendarView = ({ weekStart, weekEnd, timestamps, timezone }) => {
     return grid;
   }, [timestamps, days, hours]);
 
-  // Calculate max count for scaling
-  const maxCount = useMemo(() => {
-    let max = 0;
-    Object.values(timestampGrid).forEach(dayData => {
-      Object.values(dayData).forEach(hourData => {
-        if (hourData.length > max) {
-          max = hourData.length;
-        }
-      });
-    });
-    return max;
-  }, [timestampGrid]);
+  // Fixed intensity thresholds for consistent coloring across weeks
+  const getIntensityColor = (count) => {
+    if (count === 0) return 'transparent';
+    if (count === 1) return '#80c7ff'; // Slightly darker light blue
+    if (count === 2) return '#4da6ff'; // Medium blue
+    if (count >= 3) return '#0d47a1'; // Dark blue
+    return 'transparent';
+  };
 
-  // Color scale
-  const colorScale = d3.scaleSequential()
-    .domain([0, maxCount])
-    .interpolator(d3.interpolateBlues);
+  // Get current hour for highlighting in selected timezone
+  const getCurrentTimeInTimezone = () => {
+    const tzString = getTimezoneString(timezone);
+    // Get current time in the selected timezone
+    const now = new Date();
+    const localTime = now.toLocaleString('en-US', { timeZone: tzString });
+    return new Date(localTime);
+  };
 
-  // Get current hour for highlighting
-  const now = new Date();
-  const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  const currentHour = now.getHours();
+  const nowInTimezone = getCurrentTimeInTimezone();
+  const currentDay = nowInTimezone.getDay() === 0 ? 6 : nowInTimezone.getDay() - 1;
+  const currentHour = nowInTimezone.getHours();
 
   // Check if current week
   const isCurrentWeek = () => {
-    const now = new Date();
-    return now >= weekStart && now <= weekEnd;
+    const nowInTz = getCurrentTimeInTimezone();
+    return nowInTz >= weekStart && nowInTz <= weekEnd;
+  };
+
+  // Handle click outside to close pinned popover
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check if click was outside both the popover and the grid cells
+      const clickedOnPopover = event.target.closest('.question-popover');
+      const clickedOnCell = event.target.closest('.hour-cell');
+
+      if (!clickedOnPopover && !clickedOnCell && pinnedCell) {
+        // Click was outside, close the pinned popover
+        setPinnedCell(null);
+        setHoveredCell(null);
+      }
+    };
+
+    // Only add listener when there's a pinned popover
+    if (pinnedCell) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [pinnedCell]);
+
+  // Handle cell hover
+  const handleCellHover = (dayIndex, hour, event) => {
+    const cellData = timestampGrid[dayIndex][hour];
+    if (!cellData || cellData.length === 0) return;
+
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // Don't show hover popover if already pinned
+    if (pinnedCell) return;
+
+    // Set timeout to show popover after short delay
+    hoverTimeoutRef.current = setTimeout(() => {
+      const rect = event.target.getBoundingClientRect();
+      const gridRect = gridRef.current?.getBoundingClientRect() || { top: 0, left: 0 };
+
+      setPopoverPosition({
+        top: rect.bottom - gridRect.top + 10,
+        left: rect.left - gridRect.left
+      });
+      setHoveredCell({ dayIndex, hour });
+    }, 300);
+  };
+
+  // Handle cell mouse leave
+  const handleCellLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    if (!pinnedCell) {
+      setHoveredCell(null);
+    }
+  };
+
+  // Handle cell click
+  const handleCellClick = (dayIndex, hour, event) => {
+    const cellData = timestampGrid[dayIndex][hour];
+    if (!cellData || cellData.length === 0) return;
+
+    // Stop propagation to prevent immediate close from click-outside handler
+    event.stopPropagation();
+
+    // Toggle pinned state
+    if (pinnedCell?.dayIndex === dayIndex && pinnedCell?.hour === hour) {
+      setPinnedCell(null);
+      setHoveredCell(null);
+    } else {
+      const rect = event.target.getBoundingClientRect();
+      const gridRect = gridRef.current?.getBoundingClientRect() || { top: 0, left: 0 };
+
+      setPopoverPosition({
+        top: rect.bottom - gridRect.top + 10,
+        left: rect.left - gridRect.left
+      });
+      setPinnedCell({ dayIndex, hour });
+      setHoveredCell(null);
+    }
+  };
+
+  // Get questions for popover
+  const getPopoverQuestions = () => {
+    if (pinnedCell) {
+      return timestampGrid[pinnedCell.dayIndex][pinnedCell.hour] || [];
+    }
+    if (hoveredCell) {
+      return timestampGrid[hoveredCell.dayIndex][hoveredCell.hour] || [];
+    }
+    return [];
   };
 
   return (
     <div className="calendar-view">
-      <div className="calendar-grid">
+      <div className="calendar-grid" ref={gridRef}>
         {/* Hour labels */}
         <div className="hour-labels">
           <div className="empty-cell"></div>
@@ -86,11 +211,13 @@ const CalendarView = ({ weekStart, weekEnd, timestamps, timezone }) => {
               return (
                 <div
                   key={`${dayIndex}-${hour}`}
-                  className={`hour-cell ${isCurrentCell ? 'current-hour' : ''}`}
+                  className={`hour-cell ${isCurrentCell ? 'current-hour' : ''} ${count > 0 ? 'has-data' : ''}`}
                   style={{
-                    backgroundColor: count > 0 ? colorScale(count) : 'transparent'
+                    backgroundColor: getIntensityColor(count)
                   }}
-                  title={`${day} ${hour}:00 - ${count} post${count !== 1 ? 's' : ''}`}
+                  onMouseEnter={(e) => handleCellHover(dayIndex, hour, e)}
+                  onMouseLeave={handleCellLeave}
+                  onClick={(e) => handleCellClick(dayIndex, hour, e)}
                 >
                   {count > 0 && (
                     <div className="timestamp-dots">
@@ -111,16 +238,39 @@ const CalendarView = ({ weekStart, weekEnd, timestamps, timezone }) => {
       <div className="calendar-legend">
         <div className="legend-title">Activity Intensity</div>
         <div className="legend-gradient">
-          <div className="gradient-bar" style={{
-            background: `linear-gradient(to right, ${colorScale(0)}, ${colorScale(maxCount / 2)}, ${colorScale(maxCount)})`
-          }}></div>
-          <div className="gradient-labels">
-            <span>0</span>
-            <span>{Math.floor(maxCount / 2)}</span>
-            <span>{maxCount}</span>
+          <div className="legend-levels">
+            <div className="legend-level">
+              <div className="legend-color" style={{ backgroundColor: 'transparent', border: '1px solid #ddd' }}></div>
+              <span>0</span>
+            </div>
+            <div className="legend-level">
+              <div className="legend-color" style={{ backgroundColor: getIntensityColor(1) }}></div>
+              <span>1</span>
+            </div>
+            <div className="legend-level">
+              <div className="legend-color" style={{ backgroundColor: getIntensityColor(2) }}></div>
+              <span>2</span>
+            </div>
+            <div className="legend-level">
+              <div className="legend-color" style={{ backgroundColor: getIntensityColor(3) }}></div>
+              <span>3+</span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Question Popover */}
+      {(hoveredCell || pinnedCell) && (
+        <QuestionPopover
+          questions={getPopoverQuestions()}
+          position={popoverPosition}
+          onClose={() => {
+            setPinnedCell(null);
+            setHoveredCell(null);
+          }}
+          isPinned={!!pinnedCell}
+        />
+      )}
     </div>
   );
 };
