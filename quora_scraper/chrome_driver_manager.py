@@ -69,7 +69,7 @@ class ChromeDriverManager:
             response = requests.get(f'{cdp_url}/json', timeout=5)
             if response.status_code == 200:
                 tabs_info = response.json()
-                logger.info(f"Found existing Chrome instance with {len(tabs_info)} tabs on port {self.debug_port}")
+                logger.debug(f"Found existing Chrome instance with {len(tabs_info)} tabs on port {self.debug_port}")
 
                 # Connect to Chrome via debuggerAddress
                 chrome_options = Options()
@@ -82,7 +82,7 @@ class ChromeDriverManager:
                 # Setup Chrome driver service
                 service = self.get_chrome_service()
 
-                logger.info("Establishing CDP connection to existing Chrome session...")
+                logger.debug("Establishing CDP connection to existing Chrome session...")
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
                 # Apply stealth mode
@@ -92,7 +92,7 @@ class ChromeDriverManager:
                 current_url = self.driver.current_url
                 current_title = self.driver.title
                 logger.info(f"Successfully connected to Chrome session!")
-                logger.info(f"Current page: {current_title} ({current_url})")
+                logger.debug(f"Current page: {current_title} ({current_url})")
 
                 return True
             else:
@@ -168,7 +168,7 @@ class ChromeDriverManager:
             is_mac_arm = platform.system() == 'Darwin' and platform.machine() == 'arm64'
 
             if is_mac_arm:
-                logger.info("Setting up ChromeDriver for Mac ARM")
+                logger.debug("Setting up ChromeDriver for Mac ARM")
                 # Ensure ChromeDriver is installed via Homebrew
                 subprocess.run(['brew', 'install', 'chromedriver'], capture_output=True, check=False)
                 # Remove quarantine attribute

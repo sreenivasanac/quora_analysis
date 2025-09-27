@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Quora Answer Scraper designed to extract all answers from a specific Quora user profile (e.g., Kanthaswamy Balasubramaniam) and store them in PostgreSQL. The project uses Scrapy with Chrome DevTools Protocol (CDP) for stealth browsing and anti-detection.
+This is a Quora Answer Scraper designed to extract all answers from a specific Quora user profile (e.g., Kanthaswamy Balasubramaniam) and store them in PostgreSQL. The project uses Scrapy with Chrome DevTools Protocol (CDP) for stealth browsing and anti-detection, plus a React/Flask visualization dashboard.
 
 ## Key Commands
 
@@ -48,6 +48,21 @@ python test_answer_processor.py
 
 # Test timestamp parsing
 python test_timestamp_parsing.py
+
+# Test parallel processing setup
+python test_parallel_setup.py
+```
+
+### Visualization Dashboard
+```bash
+# Start backend server
+cd visualization && python visualization_backend.py
+
+# Start frontend development server
+cd visualization/visualization_frontend && npm start
+
+# Build for production
+cd visualization/visualization_frontend && npm run build
 ```
 
 ### Development Tools
@@ -126,6 +141,32 @@ python start_chrome_debug.py
   - Failed URL collection across workers
 - **Performance**: 3-5x faster than sequential processing
 
+### Visualization System (NEW)
+
+#### Backend (`visualization/visualization_backend.py`)
+- Flask API server with CORS support
+- Endpoints:
+  - `/api/timestamps`: Get timestamps for date range with timezone conversion
+  - `/api/timestamps/all`: Get all timestamps for calendar view
+  - `/api/stats`: Get posting statistics
+  - `/api/health`: Health check endpoint
+- Uses shared utilities from `utils/` directory
+
+#### Frontend (`visualization/visualization_frontend/`)
+- React-based dashboard built with Create React App
+- Components:
+  - Calendar heatmap view showing answer frequency
+  - Weekly posting patterns analysis
+  - Timezone-aware data visualization (IST, CST, PST, EST)
+  - Question popovers on hover
+- Production build served via Vercel
+
+#### Deployment (Vercel)
+- Configuration in `vercel.json`
+- API serverless functions in `api/` directory
+- Static frontend build from `visualization/visualization_frontend/build`
+- Shared utilities in `utils/` for database and timezone operations
+
 ## Environment Configuration
 
 Create `.env` file from `.env_example`:
@@ -155,6 +196,7 @@ GOOGLE_EMAIL=your_email@example.com
 - `run_scraper.py` - Direct scraper runner with mode selection (supports --workers)
 - `setup_database.py` - Database initialization
 - `start_parallel_chrome.py` - Helper to start multiple Chrome instances (NEW)
+- `test_*.py` - Various test scripts for different components
 - `quora_scraper/` - Main Scrapy project directory
   - `chrome_driver_manager.py` - Centralized Chrome driver management (singleton)
   - `spiders/quora_profile_spider.py` - Core spider implementation
@@ -164,6 +206,12 @@ GOOGLE_EMAIL=your_email@example.com
   - `middlewares.py` - Chrome CDP and authentication (uses ChromeDriverManager)
   - `common.py` - Shared utilities and authentication checking
   - `settings.py` - Scrapy configuration
+- `visualization/` - Data visualization components (NEW)
+  - `visualization_backend.py` - Flask API server
+  - `visualization_frontend/` - React dashboard
+- `api/` - Vercel serverless functions
+- `utils/` - Shared utilities for database and timezone operations
+- `vercel.json` - Vercel deployment configuration
 
 ## Development Tips
 
@@ -176,6 +224,7 @@ GOOGLE_EMAIL=your_email@example.com
 - Database operations should use `database_context()` context manager
 - Critical fields (question_text, answer_content) are validated before saving
 - Failed URLs are tracked and reported at the end of processing
+- For visualization changes, test locally with both backend and frontend running
 
 ## Recent Architecture Improvements
 
@@ -194,3 +243,9 @@ GOOGLE_EMAIL=your_email@example.com
 - URL processing details go to timestamped log files
 - Console shows clean, single-line progress updates
 - Reduced verbose output (e.g., Chrome tab information)
+
+### Visualization Dashboard (NEW)
+- Added interactive data visualization for collected answers
+- Timezone-aware analysis of posting patterns
+- Calendar heatmap for answer frequency over time
+- Deployed to Vercel with serverless API functions

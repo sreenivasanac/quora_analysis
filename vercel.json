@@ -1,20 +1,5 @@
 {
-  "functions": {
-    "api/*.py": {
-      "maxDuration": 10
-    }
-  },
-  "buildCommand": "cd visualization/visualization_frontend && npm install && npm run build",
+  "buildCommand": "cd visualization/visualization_frontend && npm run build",
   "outputDirectory": "visualization/visualization_frontend/build",
-  "installCommand": "npm install --prefix visualization/visualization_frontend",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/$1"
-    }
-  ]
+  "installCommand": "npm install --prefix visualization/visualization_frontend"
 }

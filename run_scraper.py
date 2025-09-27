@@ -71,14 +71,23 @@ def run_collector():
         settings.setmodule('quora_scraper.settings')
 
         # Suppress all verbose Scrapy startup logging
-        logging.getLogger('scrapy').setLevel(logging.WARNING)
-        logging.getLogger('scrapy.utils.log').setLevel(logging.WARNING)
-        logging.getLogger('scrapy.core.engine').setLevel(logging.WARNING)
-        logging.getLogger('scrapy.addons').setLevel(logging.WARNING)
-        logging.getLogger('scrapy.crawler').setLevel(logging.WARNING)
-        logging.getLogger('scrapy.middleware').setLevel(logging.WARNING)
-        logging.getLogger('asyncio').setLevel(logging.WARNING)
-        logging.getLogger('scrapy.extensions').setLevel(logging.WARNING)
+        logging.getLogger('scrapy').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.utils.log').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.core.engine').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.addons').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.crawler').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.middleware').setLevel(logging.ERROR)
+        logging.getLogger('asyncio').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.extensions').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.extensions.throttle').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.spidermiddlewares.httperror').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.downloadermiddlewares.cookies').setLevel(logging.ERROR)
+        logging.getLogger('scrapy.statscollectors').setLevel(logging.ERROR)
+        logging.getLogger('selenium').setLevel(logging.ERROR)
+        logging.getLogger('selenium.webdriver.common.driver_finder').setLevel(logging.ERROR)
+        logging.getLogger('selenium.webdriver.common.service').setLevel(logging.ERROR)
+        logging.getLogger('quora_scraper.middlewares').setLevel(logging.WARNING)
+        logging.getLogger('quora_scraper.chrome_driver_manager').setLevel(logging.WARNING)
 
         # Override settings from environment if provided
         if os.getenv('SCRAPY_LOG_LEVEL'):
@@ -232,11 +241,8 @@ def main():
             ports = [str(9223 + i) for i in range(args.workers)]
             print(", ".join(ports))
             print()
-            print("To manually start Chrome instances (optional):")
-            for i in range(args.workers):
-                port = 9223 + i
-                print(f"  Terminal {i+1}: /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \\")
-                print(f"    --remote-debugging-port={port} --user-data-dir=/tmp/chrome_debug_profile_{port}")
+            print("To manually start Chrome instances (if needed):")
+            print(f"  python start_parallel_chrome.py -n {args.workers}")
         else:
             print("\nSEQUENTIAL MODE: Single Chrome instance")
             print("- If not already running, start Chrome with:")
