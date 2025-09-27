@@ -3,7 +3,7 @@ import time
 import logging
 import signal
 import sys
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 from selenium.webdriver.common.by import By
 from ..items import QuoraAnswerItem
 from quora_scraper.database import database_context
@@ -319,6 +319,17 @@ class QuoraProfileSpider(scrapy.Spider):
             logger.error(f"Error saving final batch: {e}")
             return 0
 
+    def clean_answer_url(self, url):
+        """Remove query parameters like ?no_redirect=1 from answer URL"""
+        try:
+            parsed = urlparse(url)
+            # Reconstruct URL without query parameters
+            clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+            return clean_url
+        except Exception as e:
+            logger.warning(f"Error cleaning URL {url}: {e}")
+            return url
+
     def extract_answer_links_from_selenium(self):
         """Extract answer links from current page state using Selenium with fallback selectors"""
         try:
@@ -329,7 +340,8 @@ class QuoraProfileSpider(scrapy.Spider):
             for element in elements:
                 href = element.get_attribute('href')
                 if href and '/answer/' in href:
-                    links.append(href)
+                    clean_href = self.clean_answer_url(href)
+                    links.append(clean_href)
 
             # Fallback selectors if primary doesn't work well
             if len(links) < 10:  # If we found very few links, try alternatives
@@ -344,8 +356,10 @@ class QuoraProfileSpider(scrapy.Spider):
                         fallback_elements = self.chrome_manager.get_driver().find_elements(By.CSS_SELECTOR, selector)
                         for element in fallback_elements:
                             href = element.get_attribute('href')
-                            if href and '/answer/' in href and href not in links:
-                                links.append(href)
+                            if href and '/answer/' in href:
+                                clean_href = self.clean_answer_url(href)
+                                if clean_href not in links:
+                                    links.append(clean_href)
                     except:
                         continue
 

@@ -188,14 +188,18 @@ class QuoraAnswerProcessor:
     def extract_answer_data(self, answered_question_url: str) -> dict:
         """Extract all required data from an answer page"""
         try:
+            # Clean the URL by removing ?no_redirect=1 if present
+            cleaned_url = answered_question_url.split('?no_redirect=1')[0]
+
             # Navigate to the answer page
             self.chrome_manager.get_driver().get(answered_question_url)
             time.sleep(3)  # Wait for page to load
-            
+
             answer_data = {}
-            
-            # Store the answered question URL
-            answer_data['answered_question_url'] = answered_question_url
+
+            # Store the cleaned answered question URL
+            answer_data['answered_question_url'] = cleaned_url
+            answered_question_url = cleaned_url
             
             # Extract question URL
             try:

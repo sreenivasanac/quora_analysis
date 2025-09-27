@@ -269,12 +269,16 @@ def worker_process_answers(args: Tuple[int, List[Dict], int, Queue, Queue, str])
 def extract_answer_data_worker(chrome_manager: ParallelChromeManager, answered_question_url: str, logger) -> Optional[Dict]:
     """Extract answer data for a worker"""
     try:
+        # Clean the URL by removing ?no_redirect=1 if present
+        cleaned_url = answered_question_url.split('?no_redirect=1')[0]
+
         # Navigate to the answer page
         chrome_manager.get_driver().get(answered_question_url)
         time.sleep(3)  # Wait for page to load
 
         answer_data = {}
-        answer_data['answered_question_url'] = answered_question_url
+        answer_data['answered_question_url'] = cleaned_url
+        answered_question_url = cleaned_url
 
         # Extract question URL
         try:
