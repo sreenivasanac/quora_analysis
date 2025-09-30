@@ -1,67 +1,82 @@
 .stats-panel {
-  background: white;
-  border-radius: 15px;
-  padding: 25px;
-  margin-bottom: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 2rem 2.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  transition: box-shadow 0.2s ease;
+}
+
+.stats-panel:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .stats-panel h2 {
-  color: #333;
-  font-size: 20px;
-  margin-bottom: 20px;
+  color: var(--foreground);
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
   font-weight: 600;
+  letter-spacing: -0.025em;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1.25rem;
 }
 
 .stat-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-  border-radius: 12px;
+  background: var(--primary);
+  padding: 1.5rem;
+  border-radius: var(--radius);
   text-align: center;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  border: 1px solid color-mix(in oklch, var(--primary) 80%, transparent);
 }
 
 .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: white;
-  margin-bottom: 8px;
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--primary-foreground);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.025em;
 }
 
 .stat-label {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.75rem;
+  color: var(--primary-foreground);
+  opacity: 0.9;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
   font-weight: 500;
 }
 
 @media (max-width: 768px) {
+  .stats-panel {
+    padding: 1.5rem;
+  }
+
   .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1rem;
   }
 
   .stat-card {
-    padding: 15px;
+    padding: 1.25rem;
   }
 
   .stat-value {
-    font-size: 22px;
+    font-size: 1.5rem;
   }
 
   .stat-label {
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 }
