@@ -66,9 +66,9 @@ const CalendarView = ({ weekStart, weekEnd, timestamps, timezone }) => {
   // Fixed intensity thresholds for consistent coloring across weeks
   const getIntensityColor = (count) => {
     if (count === 0) return 'transparent';
-    if (count === 1) return '#80c7ff'; // Slightly darker light blue
-    if (count === 2) return '#4da6ff'; // Medium blue
-    if (count >= 3) return '#0d47a1'; // Dark blue
+    if (count === 1) return '#a5d6a7'; // Very light green
+    if (count === 2) return '#4caf50'; // Medium green
+    if (count >= 3) return '#1b5e20'; // Dark green
     return 'transparent';
   };
 

@@ -1,50 +1,55 @@
 .timezone-selector {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 1rem;
 }
 
 .timezone-selector label {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #555;
+  color: var(--muted-foreground);
 }
 
 .timezone-dropdown {
-  padding: 8px 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  background: var(--background);
+  color: var(--foreground);
   cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 180px;
+  transition: all 0.2s ease;
+  min-width: 12rem;
+  font-weight: 500;
 }
 
 .timezone-dropdown:hover {
-  border-color: #667eea;
+  border-color: var(--primary);
+  background: var(--accent);
 }
 
 .timezone-dropdown:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 20%, transparent);
 }
 
 .current-time {
-  font-size: 13px;
-  color: #666;
-  background: #f0f0f0;
-  padding: 6px 12px;
-  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--radius);
   font-weight: 500;
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
 }
 
 @media (max-width: 768px) {
   .timezone-selector {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 0.75rem;
   }
 
   .timezone-dropdown {

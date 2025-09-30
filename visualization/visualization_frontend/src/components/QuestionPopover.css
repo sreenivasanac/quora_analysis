@@ -1,13 +1,13 @@
 .question-popover {
   position: absolute;
-  background: white;
-  border: 2px solid #667eea;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
   z-index: 1000;
-  min-width: 400px;
-  max-width: 500px;
-  max-height: 400px;
+  min-width: 26rem;
+  max-width: 32rem;
+  max-height: 28rem;
   display: flex;
   flex-direction: column;
   animation: fadeIn 0.2s ease-out;
@@ -16,7 +16,7 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-0.5rem);
   }
   to {
     opacity: 1;
@@ -25,33 +25,36 @@
 }
 
 .question-popover.pinned {
-  border-color: #ff6b6b;
+  border-color: var(--primary);
+  box-shadow: var(--shadow-2xl), 0 0 0 2px color-mix(in oklch, var(--primary) 20%, transparent);
 }
 
 .popover-header {
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 10px 10px 0 0;
+  padding: 1rem 1.25rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid color-mix(in oklch, var(--primary-foreground) 20%, transparent);
 }
 
 .popover-header h4 {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
+  letter-spacing: 0.025em;
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in oklch, var(--primary-foreground) 15%, transparent);
   border: none;
-  color: white;
-  font-size: 24px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  color: var(--primary-foreground);
+  font-size: 1.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -62,14 +65,14 @@
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
+  background: color-mix(in oklch, var(--primary-foreground) 25%, transparent);
+  transform: scale(1.05);
 }
 
 .popover-content {
   overflow-y: auto;
   flex: 1;
-  padding: 8px 0;
+  padding: 0.5rem 0;
 }
 
 .question-list {
@@ -79,16 +82,16 @@
 }
 
 .question-item {
-  padding: 8px 16px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  transition: background-color 0.2s ease;
+  gap: 0.875rem;
+  transition: background-color 0.15s ease;
 }
 
 .question-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--accent);
 }
 
 .question-item:last-child {
@@ -96,56 +99,54 @@
 }
 
 .question-time {
-  font-size: 11px;
-  color: #666;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
   font-weight: 600;
-  min-width: 45px;
-  padding-top: 2px;
-  font-family: monospace;
+  min-width: 3rem;
+  padding-top: 0.125rem;
+  font-family: var(--font-mono);
 }
 
 .question-link {
-  color: #333;
+  color: var(--foreground);
   text-decoration: none;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 0.8125rem;
+  line-height: 1.5;
   flex: 1;
-  transition: color 0.2s ease;
+  transition: color 0.15s ease;
 }
 
 .question-link:hover {
-  color: #667eea;
+  color: var(--primary);
   text-decoration: underline;
 }
 
-/* Scrollbar styling */
 .popover-content::-webkit-scrollbar {
-  width: 6px;
+  width: 0.375rem;
 }
 
 .popover-content::-webkit-scrollbar-track {
-  background: #f0f0f0;
-  border-radius: 3px;
+  background: var(--muted);
+  border-radius: var(--radius);
 }
 
 .popover-content::-webkit-scrollbar-thumb {
-  background: #667eea;
-  border-radius: 3px;
+  background: var(--primary);
+  border-radius: var(--radius);
 }
 
 .popover-content::-webkit-scrollbar-thumb:hover {
-  background: #5a67d8;
+  background: color-mix(in oklch, var(--primary) 80%, black);
 }
 
-/* Responsive adjustments */
 @media (max-width: 600px) {
   .question-popover {
-    min-width: 300px;
+    min-width: 20rem;
     max-width: 90vw;
     max-height: 50vh;
   }
 
   .question-link {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 }
