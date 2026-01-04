@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Add the project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from quora_scraper.database import DatabaseManager
+from quora_scraper.database_sqlite import DatabaseManager
 from datetime import datetime
 import pytz
 

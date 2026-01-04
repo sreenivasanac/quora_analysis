@@ -53,11 +53,6 @@ logs/
 quora_scraper.log
 quora_process.log
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
 # Mac
 .DS_Store
 

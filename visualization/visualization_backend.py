@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # Add the project root to Python path so we can import utils
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from utils.database import get_timestamps_for_date_range, get_statistics, get_all_timestamps
+from utils.database_sqlite import get_timestamps_for_date_range, get_statistics, get_all_timestamps
 from utils.timezone_utils import (
     convert_to_timezone, get_date_range_for_timezone,
     calculate_distributions, TIMEZONES

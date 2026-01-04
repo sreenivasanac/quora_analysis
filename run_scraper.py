@@ -31,7 +31,7 @@ def setup_logging(log_file='quora_scraper.log'):
 
 def check_environment():
     """Check if all required environment variables are set"""
-    required_vars = ['DATABASE_URL', 'GOOGLE_EMAIL']
+    required_vars = ['GOOGLE_EMAIL']
     missing_vars = []
     
     for var in required_vars:

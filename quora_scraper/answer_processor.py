@@ -11,7 +11,7 @@ from datetime import datetime
 import pytz
 from selenium.webdriver.common.by import By
 import html2text
-from .database import DatabaseManager
+from .database_sqlite import DatabaseManager
 from .chrome_driver_manager import get_chrome_manager
 
 logger = logging.getLogger(__name__)

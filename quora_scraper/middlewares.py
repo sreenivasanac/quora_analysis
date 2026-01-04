@@ -192,15 +192,16 @@ class AuthMiddleware:
     
     def process_request(self, request, spider):
         """Process request with authentication if needed"""
-        # # Check if this is a Selenium-only request (no HTTP needed)
-        # if request.meta.get('use_selenium', False):
-        #     logger.info("Skipping HTTP request - using Selenium directly")
-        #     # Return a fake response since we'll handle everything in Selenium
-        #     return HtmlResponse(
-        #         url=request.url,
-        #         body=b'<html><body>Selenium will handle this</body></html>',
-        #         encoding='utf-8'
-        #     )
+        # Check if this is a Selenium-only request (no HTTP needed)
+        if request.meta.get('use_selenium', False):
+            logger.info("Skipping HTTP request - using Selenium directly")
+            # Return a fake response since we'll handle everything in Selenium
+            return HtmlResponse(
+                url=request.url,
+                body=b'<html><body>Selenium will handle this</body></html>',
+                encoding='utf-8',
+                request=request
+            )
         
         # For regular HTTP requests, ensure authentication
         if not self.chrome_manager.is_authenticated():

@@ -16,7 +16,7 @@ from selenium.webdriver.common.by import By
 import html2text
 import requests
 
-from .database import DatabaseManager
+from .database_sqlite import DatabaseManager
 from .chrome_driver_manager import ChromeDriverManager
 from .common import check_quora_authentication
 

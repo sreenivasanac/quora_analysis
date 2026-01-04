@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Quora Answer Scraper designed to extract all answers from a specific Quora user profile (e.g., Kanthaswamy Balasubramaniam) and store them in PostgreSQL. The project uses Scrapy with Chrome DevTools Protocol (CDP) for stealth browsing and anti-detection, plus a React/Flask visualization dashboard.
+This is a Quora Answer Scraper designed to extract all answers from a specific Quora user profile (e.g., Kanthaswamy Balasubramaniam) and store them in SQLite db. The project uses Scrapy with Chrome DevTools Protocol (CDP) for stealth browsing and anti-detection, plus a React/Flask visualization dashboard.
 
 ## Key Commands
 
@@ -93,7 +93,7 @@ python start_chrome_debug.py
   - Stealth mode application to hide automation
 
 #### Database Layer (`quora_scraper/database.py`)
-- **DatabaseManager**: Handles all PostgreSQL operations
+- **DatabaseManager**: Handles all SQLite operations
 - **database_context()**: Context manager for safe database operations
 - Schema: `quora_answers` table with fields for URLs, question text, answer content, timestamps
 - Incremental processing: tracks complete vs incomplete entries
@@ -167,14 +167,6 @@ python start_chrome_debug.py
 - Static frontend build from `visualization/visualization_frontend/build`
 - Shared utilities in `utils/` for database and timezone operations
 
-## Environment Configuration
-
-Create `.env` file from `.env_example`:
-```
-DATABASE_URL=postgresql://username:password@localhost/quora_analysis
-GOOGLE_EMAIL=your_email@example.com
-```
-
 ## Important Notes
 
 - **Chrome Debugging**:
@@ -182,7 +174,7 @@ GOOGLE_EMAIL=your_email@example.com
   - Process mode: Chrome on ports 9223+ (9223, 9224, 9225...)
   - Allows running both modes simultaneously
 - **Authentication**: Uses existing Google OAuth session in browser
-- **Database**: PostgreSQL required with specific schema
+- **Database**: SQLite required with specific schema
 - **Rate Limiting**: Respectful scraping with 0.3s delays between requests
 - **Logging**:
   - Collection mode: `quora_scraper.log`
