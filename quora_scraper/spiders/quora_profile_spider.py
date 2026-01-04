@@ -6,7 +6,7 @@ import sys
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 from selenium.webdriver.common.by import By
 from ..items import QuoraAnswerItem
-from quora_scraper.database import database_context
+from quora_scraper.database_sqlite import database_context
 from quora_scraper.chrome_driver_manager import get_chrome_manager
 
 logger = logging.getLogger(__name__)

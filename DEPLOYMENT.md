@@ -25,10 +25,6 @@ The React app will automatically connect to the Flask backend on localhost:5000.
 
 ## Production Deployment to Vercel
 
-### 1. Environment Variables
-Add these environment variables in Vercel dashboard:
-- `DATABASE_URL`: Your Supabase PostgreSQL connection string
-
 ### 2. Deploy to Vercel
 1. Connect your GitHub repository to Vercel
 2. Vercel will automatically detect the `vercel.json` configuration
@@ -40,7 +36,7 @@ Add these environment variables in Vercel dashboard:
 ### 3. Architecture
 - **Frontend**: React app served as static files
 - **Backend**: Python serverless functions in `/api/` directory
-- **Database**: Supabase PostgreSQL (already configured)
+- **Database**: SQLite
 
 ## API Endpoints (Both Local & Production)
 - `/api/health` - Health check

@@ -3,9 +3,8 @@
 Test database connectivity for both local and production environments
 """
 
-import os
 from dotenv import load_dotenv
-from utils.database import get_db_connection
+from utils.database_sqlite import get_db_connection
 
 def test_database():
     load_dotenv()

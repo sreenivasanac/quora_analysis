@@ -46,18 +46,6 @@ A comprehensive Scrapy-based web scraper to extract all 28,000+ answers from Quo
    
    > **Why uv?** uv is 10-100x faster than pip, has better dependency resolution, and provides a more reliable installation experience. All pip commands work with `uv pip`.
 
-3. **Install PostgreSQL** (if not already installed):
-   - macOS: `brew install postgresql`
-   - Ubuntu: `sudo apt-get install postgresql postgresql-contrib`
-   - Windows: Download from [postgresql.org](https://www.postgresql.org/download/)
-
-4. **Create a PostgreSQL database:**
-   ```sql
-   CREATE DATABASE quora_analysis1;
-   CREATE USER quora_analysis_admin WITH PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE quora_analysis TO quora_analysis_admin;
-   ```
-
 5. **Configure environment variables:**
    ```bash
    cp env_example.txt .env
@@ -278,7 +266,7 @@ INFO - Page 5: Found 23 answer links. Total so far: 487
 Check current status:
 ```bash
 python -c "
-from quora_scraper.database import DatabaseManager
+from quora_scraper.database_sqlite import DatabaseManager
 import os
 from dotenv import load_dotenv
 load_dotenv()

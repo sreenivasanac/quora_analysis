@@ -7,7 +7,7 @@ Creates the necessary database tables and indexes
 import os
 import sys
 from dotenv import load_dotenv
-from quora_scraper.database import DatabaseManager
+from quora_scraper.database_sqlite import DatabaseManager
 
 def setup_database():
     """Setup the PostgreSQL database with required tables"""

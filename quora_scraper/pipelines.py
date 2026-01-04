@@ -1,5 +1,5 @@
 import logging
-from .database import DatabaseManager
+from .database_sqlite import DatabaseManager
 from .items import QuoraAnswerItem
 
 logger = logging.getLogger(__name__)

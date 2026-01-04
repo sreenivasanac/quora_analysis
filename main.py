@@ -16,7 +16,7 @@ def main():
     print()
     
     print("Available commands:")
-    print("1. Setup database - Initialize PostgreSQL tables")
+    print("1. Setup database - Initialize SQLite tables")
     print("2. Collect URLs - Scrape and collect answer URLs from profile page")
     print("3. Process answers - Process existing URLs and populate answer data")
     print("4. Check status - View current database status")
@@ -66,7 +66,7 @@ def main():
                 subprocess.run([sys.executable, "-c", """
                 import os
                 from dotenv import load_dotenv
-                from quora_scraper.database import DatabaseManager
+                from quora_scraper.database_sqlite import DatabaseManager
 
                 load_dotenv()
                 try:

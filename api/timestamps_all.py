@@ -7,7 +7,7 @@ from urllib.parse import urlparse, parse_qs
 # Add the project root to Python path so we can import utils
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from utils.database import get_all_timestamps
+from utils.database_sqlite import get_all_timestamps
 from utils.timezone_utils import convert_to_timezone, TIMEZONES
 
 class handler(BaseHTTPRequestHandler):
