@@ -63,19 +63,19 @@ A comprehensive Scrapy-based web scraper to extract all 28,000+ answers from Quo
 
 1. **Test your setup:**
    ```bash
-   python test_database_integration.py
+   python tests/test_database_integration.py
    ```
 
 2. **Run the interactive interface:**
    ```bash
-   python main.py
+   python scripts/main.py
    ```
 
 ### Manual Setup
 
 1. **Initialize the database:**
    ```bash
-   python setup_database.py
+   python scripts/setup_database.py
    ```
 
 2. **Install processing dependencies** (if needed):
@@ -87,18 +87,18 @@ A comprehensive Scrapy-based web scraper to extract all 28,000+ answers from Quo
    
    **Collection Mode** (collect answer URLs):
    ```bash
-   python run_scraper.py --mode collect
+   python scripts/run_scraper.py --mode collect
    ```
    
    **Processing Mode** (populate answer data):
    ```bash
-   python run_scraper.py --mode process
+   python scripts/run_scraper.py --mode process
    ```
 
 ### Command Line Options
 
 ```bash
-python run_scraper.py --help
+python scripts/run_scraper.py --help
 ```
 
 **Available Modes:**
@@ -204,7 +204,7 @@ exec arch -arm64 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome 
 
 Test your setup:
 ```bash
-python test_answer_processor.py
+python tests/test_answer_processor.py
 ```
 
 This will verify:
@@ -318,17 +318,25 @@ quora_analysis/
 │   └── spiders/
 │       ├── __init__.py
 │       └── quora_profile_spider.py  # Main spider
-├── main.py                      # Interactive interface
-├── run_scraper.py              # Direct scraper runner
-├── setup_database.py           # Database initialization
-├── test_database_integration.py  # Database testing
-├── test_answer_processor.py    # Answer processor testing
-├── scrapy.cfg                  # Scrapy project config
-├── .env                        # Environment variables (not in git)
-├── .gitignore                  # Git ignore file
-├── CLAUDE.md                   # Claude AI guidance file
-├── pyproject.toml              # Project dependencies
-└── README.md                   # This file
+├── scripts/
+│   ├── main.py                  # Interactive interface
+│   ├── run_scraper.py           # Direct scraper runner
+│   ├── setup_database.py        # Database initialization
+│   ├── start_parallel_chrome.py # Start multiple Chrome instances
+│   └── migrate_to_sqlite.py     # PostgreSQL -> SQLite migration helper
+├── tests/
+│   ├── test_database_integration.py
+│   ├── test_answer_processor.py
+│   ├── test_timestamp_parsing.py
+│   └── test_parallel_setup.py
+├── services/
+│   └── quora-api.service        # systemd unit for visualization API
+├── scrapy.cfg                   # Scrapy project config
+├── .env                         # Environment variables (not in git)
+├── .gitignore                   # Git ignore file
+├── CLAUDE.md                    # Claude AI guidance file
+├── pyproject.toml               # Project dependencies
+└── README.md                    # This file
 ```
 
 ## Implementation Status
@@ -354,17 +362,17 @@ This implementation covers both phases from the requirements:
 
 1. **First Run**: Use collection mode to gather all answer URLs
    ```bash
-   python run_scraper.py --mode collect
+   python scripts/run_scraper.py --mode collect
    ```
 
 2. **Second Run**: Use processing mode to populate answer data
    ```bash
-   python run_scraper.py --mode process
+   python scripts/run_scraper.py --mode process
    ```
 
 3. **Monitor Progress**: Check database status anytime
    ```bash
-   python main.py  # Option 4: Check status
+   python scripts/main.py  # Option 4: Check status
    ```
 
 ## Contributing

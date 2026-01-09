@@ -14,43 +14,43 @@ This is a Quora Answer Scraper designed to extract all answers from a specific Q
 uv pip install -e .
 
 # Initialize database
-python setup_database.py
+python scripts/setup_database.py
 
 # Interactive interface
-python main.py
+python scripts/main.py
 ```
 
 ### Running the Scraper
 ```bash
 # Collection mode: Collect answer URLs from profile page
-python run_scraper.py --mode collect
+python scripts/run_scraper.py --mode collect
 
 # Sequential processing mode: Process URLs one at a time
-python run_scraper.py --mode process
+python scripts/run_scraper.py --mode process
 
 # Parallel processing mode: Process URLs with multiple workers
-python run_scraper.py --mode process --workers 3  # 3 parallel workers
-python run_scraper.py --mode process --workers 5  # 5 parallel workers (max)
+python scripts/run_scraper.py --mode process --workers 3  # 3 parallel workers
+python scripts/run_scraper.py --mode process --workers 5  # 5 parallel workers (max)
 
 # Start Chrome instances for parallel processing
-python start_parallel_chrome.py -n 3  # Start 3 Chrome instances
-python start_parallel_chrome.py --check  # Check running instances
-python start_parallel_chrome.py --stop  # Stop all instances
+python scripts/start_parallel_chrome.py -n 3  # Start 3 Chrome instances
+python scripts/start_parallel_chrome.py --check  # Check running instances
+python scripts/start_parallel_chrome.py --stop  # Stop all instances
 ```
 
 ### Testing
 ```bash
 # Test database connectivity
-python test_database_integration.py
+python tests/test_database_integration.py
 
 # Test Chrome CDP connection and authentication
-python test_answer_processor.py
+python tests/test_answer_processor.py
 
 # Test timestamp parsing
-python test_timestamp_parsing.py
+python tests/test_timestamp_parsing.py
 
 # Test parallel processing setup
-python test_parallel_setup.py
+python tests/test_parallel_setup.py
 ```
 
 ### Visualization Dashboard
@@ -184,11 +184,11 @@ python start_chrome_debug.py
 
 ## File Structure
 
-- `main.py` - Interactive CLI interface
-- `run_scraper.py` - Direct scraper runner with mode selection (supports --workers)
-- `setup_database.py` - Database initialization
-- `start_parallel_chrome.py` - Helper to start multiple Chrome instances (NEW)
-- `test_*.py` - Various test scripts for different components
+- `scripts/main.py` - Interactive CLI interface
+- `scripts/run_scraper.py` - Direct scraper runner with mode selection (supports --workers)
+- `scripts/setup_database.py` - Database initialization
+- `scripts/start_parallel_chrome.py` - Helper to start multiple Chrome instances (NEW)
+- `tests/test_*.py` - Various test scripts for different components
 - `quora_scraper/` - Main Scrapy project directory
   - `chrome_driver_manager.py` - Centralized Chrome driver management (singleton)
   - `spiders/quora_profile_spider.py` - Core spider implementation
