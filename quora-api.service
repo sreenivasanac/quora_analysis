@@ -1,0 +1,15 @@
+[Unit]
+Description=Quora Visualization API
+After=network.target
+
+[Service]
+User=sreenivasanac
+Group=sreenivasanac
+WorkingDirectory=/home/sreenivasanac/projects/quora_analysis/visualization
+Environment="PATH=/home/sreenivasanac/projects/quora_analysis/venv/bin"
+ExecStart=/home/sreenivasanac/projects/quora_analysis/venv/bin/gunicorn --bind 0.0.0.0:8003 --workers 2 visualization_backend:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

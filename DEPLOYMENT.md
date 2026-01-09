@@ -1,11 +1,20 @@
-# Deployment Guide: Vercel + Supabase
+# Deployment Guide (Option A): Host Nginx + systemd
 
-This guide covers deploying your Quora visualization app to Vercel with Supabase database.
+This server deploys Quora Analysis as:
+
+- **Backend API**: systemd service (`quora-api.service`) on port **8003**
+- **Frontend**: static build served by host Nginx from `/var/www/quora_analysis`
+- **TLS**: host `certbot` -> `/etc/letsencrypt`
 
 ## Prerequisites
-- Supabase account with database setup ✓ (You already completed this)
-- GitHub repository
-- Vercel account
+- Nginx installed on host
+- Certbot installed on host
+- Backend service running (see `quora-api.service`)
+
+## Repo Templates
+
+- Host Nginx vhost template:
+  - `deploy/nginx/quora-analysis.pragnyalabs.com.conf.template`
 
 ## Local Development
 
@@ -23,20 +32,67 @@ npm start
 
 The React app will automatically connect to the Flask backend on localhost:5000.
 
-## Production Deployment to Vercel
+## Production Deployment (Host)
 
-### 2. Deploy to Vercel
-1. Connect your GitHub repository to Vercel
-2. Vercel will automatically detect the `vercel.json` configuration
-3. The deployment will:
-   - Deploy Python serverless functions (`/api/*`)
-   - Build and serve the React frontend
-   - Handle routing between frontend and API
+### 1. Backend (systemd)
 
-### 3. Architecture
-- **Frontend**: React app served as static files
-- **Backend**: Python serverless functions in `/api/` directory
-- **Database**: SQLite
+Install the service:
+
+```bash
+sudo cp quora-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable quora-api
+sudo systemctl restart quora-api
+sudo systemctl status quora-api
+```
+
+### 2. Frontend build
+
+The frontend lives at:
+
+- `visualization/visualization_frontend/`
+
+Build output is:
+
+- `visualization/visualization_frontend/build/`
+
+The deploy script builds and publishes it automatically to:
+
+- `/var/www/quora_analysis`
+
+### 3. Nginx vhost
+
+Create:
+
+`/etc/nginx/sites-available/quora-analysis.pragnyalabs.com.conf`
+
+Copy from repo template:
+
+`deploy/nginx/quora-analysis.pragnyalabs.com.conf.template`
+
+Enable and reload:
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/quora-analysis.pragnyalabs.com.conf /etc/nginx/sites-enabled/quora-analysis.pragnyalabs.com.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 4. TLS
+
+```bash
+sudo mkdir -p /var/www/certbot
+sudo chown -R www-data:www-data /var/www/certbot
+
+sudo certbot certonly --webroot -w /var/www/certbot -d quora-analysis.pragnyalabs.com
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Architecture
+- **Frontend**: static files served by Nginx
+- **Backend**: gunicorn via systemd on port 8003
+- **Database**: SQLite (as configured in this repo)
 
 ## API Endpoints (Both Local & Production)
 - `/api/health` - Health check
