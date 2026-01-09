@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_DIR="/home/sreenivasanac/projects/quora_analysis"
 WEB_ROOT="/var/www/quora_analysis"
 FRONTEND_DIR="${REPO_DIR}/visualization/visualization_frontend"
-FRONTEND_BUILD_DIR="${FRONTEND_DIR}/build"
+FRONTEND_BUILD_DIR="${FRONTEND_DIR}/dist"
 
 echo "[deploy] repo: ${REPO_DIR}"
 cd "${REPO_DIR}"
