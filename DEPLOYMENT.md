@@ -39,7 +39,7 @@ The React app will automatically connect to the Flask backend on localhost:5000.
 Install the service:
 
 ```bash
-sudo cp quora-api.service /etc/systemd/system/
+sudo cp services/quora-api.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable quora-api
 sudo systemctl restart quora-api
@@ -113,6 +113,13 @@ project/
 ├── visualization/
 │   ├── visualization_backend.py    # Flask app (local dev)
 │   └── visualization_frontend/     # React app
+├── scripts/                # Local CLI / utilities
+│   ├── main.py
+│   ├── run_scraper.py
+│   ├── setup_database.py
+│   └── start_parallel_chrome.py
+├── services/               # systemd units
+│   └── quora-api.service
 ├── requirements.txt        # Python dependencies
 └── vercel.json            # Vercel configuration
 ```

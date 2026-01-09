@@ -1,5 +1,0 @@
-{
-  "buildCommand": "cd visualization/visualization_frontend && npm run build",
-  "outputDirectory": "visualization/visualization_frontend/build",
-  "installCommand": "npm install --prefix visualization/visualization_frontend"
-}
